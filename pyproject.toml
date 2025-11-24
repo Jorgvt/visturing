@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "visturing"
+version = "0.1.0"
+authors = [
+  { name="Jorge Vila Tomás", email="jorge.vila-tomas@uv.es" },
+]
+description = "A collection of visual Turing tests and experiments."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+# dependencies = [
+#     "numpy",
+#     "scipy",
+#     "tensorflow",
+#     "matplotlib",
+#     "torch",
+#     "pandas",
+#     "tensorflow-probability",
+#     "perceptualtests",
+#     "h5py",
+# ]
+#
+[tool.setuptools]
+packages = ["visturing"]
+
+[project.urls]
+"Homepage" = "https://github.com/jorgvt/visturing"
+"Bug Tracker" = "https://github.com/jorgvt/visturing/issues"
