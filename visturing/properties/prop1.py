@@ -6,8 +6,9 @@ import scipy.io as sio
 import matplotlib.pyplot as plt
 from natsort import natsorted
 import cv2
+from scipy.stats import pearsonr
 
-def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
+def load_ground_truth(root_path: str = "ground_truth_decalogo", # Path to the root containing all the ground truth files
                       ): # Tuple (x, achromatic, red-green, yellow-blue)
     data = sio.loadmat(os.path.join(root_path, "spectral_sensitivities.mat"))
     data = data["spectral_sensitivities"]
@@ -63,3 +64,20 @@ def load_data(root_path: str,
     lambdas = np.linspace(lambdas.min(), lambdas.max(), num=len(imgs))
 
     return imgs, ref_img, lambdas
+
+def evaluate(calculate_diffs,
+             data_path: str = "Data/Experiment_1",
+             gt_path: str = "ground_truth_decalogo",
+             ): # Tuple (lambdas, diffs, correlation)
+    
+    imgs, ref_img, lambdas = load_data(data_path)
+
+    diffs = []
+    for img in imgs:
+        diffs.append(calculate_diffs(img, ref_img))
+
+    x, a, _, _ = load_ground_truth(gt_path)
+    a_interp = np.interp(lambdas, x, a)
+    corr, _ = pearsonr(diffs, a_interp)
+
+    return lambdas, diffs, corr
