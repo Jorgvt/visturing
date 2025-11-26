@@ -1,8 +1,12 @@
 import os
+from glob import glob
 
 import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
+import scipy.stats as stats
+
+from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth, calculate_correlations, prepare_and_correlate, prepare_and_correlate_order, calculate_spearman
 
 def load_data(root_path: str):
     freqs = np.load(os.path.join(root_path, "freq.npy"))
@@ -38,3 +42,52 @@ def plot_ground_truth(x,
     axes.set_xlabel("Frequency (cpd)")
     axes.set_ylabel("Sensitivity")
     return fig, axes
+
+
+def evaluate(calculate_diffs,
+             data_path,
+             gt_path,
+             ):
+
+    ## Load ground truth
+    x_gt, y_gt, rg_gt, yb_gt = load_ground_truth(gt_path)
+
+    ## Load data
+    noises = {p.split("/")[-1].split(".")[0].split("_")[-1]:np.load(p) for p in glob(os.path.join(data_path, "*")) if "noises" in p}
+    bg = np.load(os.path.join(data_path, "background.npy"))
+
+    ## Calculate the differences
+    diffs = {}
+    for k, noises_ in noises.items():
+        diffs_it = []
+        for noise_it in noises_:
+            diff = calculate_diffs(noise_it, bg[None,...])
+            # print(noise_it.shape, bg.shape, diff.shape)
+            diffs_it.append(diff)
+            # break
+        diffs_it = np.array(diffs_it)
+        diffs[k] = diffs_it.mean(axis=0)
+
+    gt_s = np.stack([y_gt,
+                    rg_gt,
+                    yb_gt])
+
+
+    diffs_s = np.stack([diffs["a"],
+                        diffs["rg"],
+                        diffs["yb"]])
+
+    freqs = load_data(data_path)
+
+    bs, ds = [], []
+    for d, gt in zip(diffs_s, gt_s):
+        a, b, c, d = prepare_data(freqs, d, x_gt, gt)
+        bs.append(b)
+        ds.append(d)
+    b = np.array(bs)
+    d = np.array(ds)
+
+    order_corr = calculate_correlations_with_ground_truth(b, d)
+    pearson_corr = stats.pearsonr(b.ravel(), d.ravel())
+
+    return diffs_s, pearson_corr, order_corr
