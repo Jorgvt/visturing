@@ -2,6 +2,8 @@ import os
 import re
 from glob import glob
 from collections import defaultdict
+import wget
+from zipfile import ZipFile
 
 
 import numpy as np
@@ -104,3 +106,14 @@ def evaluate(calculate_diffs,
     )
 
     return {"order_corr": order_corr, "pearson": pearson}
+
+def download_data(data_path, # Path to download the data
+                  ):
+    # if not os.path.exists(data_path):
+    #     os.makedirs(data_path)
+    data_url = "https://zenodo.org/records/17700252/files/Experiment_8.zip"
+    path = wget.download(data_url)
+    with ZipFile(path) as zipObj:
+        zipObj.extractall(data_path)
+    os.remove(path)
+    return os.path.join(data_path, "Experiment_8")

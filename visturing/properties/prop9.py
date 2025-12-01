@@ -2,6 +2,8 @@ import os
 import re
 from glob import glob
 from collections import defaultdict
+import wget
+from zipfile import ZipFile
 
 
 import numpy as np
@@ -75,4 +77,14 @@ def evaluate(calculate_diffs,
 
     order_corr["high"] = calculate_spearman(diffs_high_s, ideal_ordering=[0,1,2,3,5,4])
     return {"order_corr": order_corr}
-    
+
+def download_data(data_path, # Path to download the data
+                  ):
+    # if not os.path.exists(data_path):
+    #     os.makedirs(data_path)
+    data_url = "https://zenodo.org/records/17700252/files/Experiment_9.zip"
+    path = wget.download(data_url)
+    with ZipFile(path) as zipObj:
+        zipObj.extractall(data_path)
+    os.remove(path)
+    return os.path.join(data_path, "Experiment_9")
