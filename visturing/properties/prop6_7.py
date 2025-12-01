@@ -139,4 +139,4 @@ def download_data(data_path, # Path to download the data
     with ZipFile(path) as zipObj:
         zipObj.extractall(data_path)
     os.remove(path)
-    return os.path.join(data_path, "Experiment_6")
+    return os.path.join(data_path, "Experiment_6_7")
