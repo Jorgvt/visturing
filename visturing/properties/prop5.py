@@ -72,4 +72,4 @@ def evaluate(calculate_diffs,
     order_corr = calculate_correlations_with_ground_truth(diffs_stack, ds)
     pearson_corr = stats.pearsonr(diffs_stack.ravel(), ds.ravel())
 
-    return ds, pearson_corr, order_corr
+    return {"ds": ds, "pearson_corr": pearson_corr, "order_corr": order_corr}

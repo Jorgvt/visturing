@@ -78,4 +78,4 @@ def evaluate(calculate_diffs,
     a_interp = np.interp(lambdas, x, a)
     corr, _ = pearsonr(diffs, a_interp)
 
-    return lambdas, diffs, corr
+    return {"lambdas": lambdas, "diffs": diffs, "corr": corr}

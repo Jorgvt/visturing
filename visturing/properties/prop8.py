@@ -103,4 +103,4 @@ def evaluate(calculate_diffs,
         ])
     )
 
-    return order_corr, pearson
+    return {"order_corr": order_corr, "pearson": pearson}

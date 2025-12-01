@@ -115,4 +115,4 @@ def evaluate(calculate_diffs,
     )[0]
     correlations = {"pearson_achrom": corr_achrom, "pearson_chrom": corr_chroma, "spearman": spearman_correlations}
 
-    return diffs, correlations
+    return {"diffs": diffs, "correlations": correlations}

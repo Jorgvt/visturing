@@ -123,4 +123,4 @@ def evaluate(calculate_diffs,
         b_cat[~nan_mask], d_cat[~nan_mask]
     )
 
-    return order_corr, pearson
+    return {"order_corr": order_corr, "pearson": pearson}
