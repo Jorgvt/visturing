@@ -64,6 +64,9 @@ def evaluate(calculate_diffs,
              gt_path: str = "ground_truth_decalogo",
              ): # Tuple (responses, correlations)
 
+    if not os.path.exists(data_path):
+        data_path = download_data("/".join(data_path.split("/")[:-1]))
+
     ## Load ground truth
     x_a_gt, y_a_gt, x_rg_gt, y_rg_gt, x_yb_gt, y_yb_gt = load_ground_truth(gt_path)
 

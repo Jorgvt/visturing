@@ -51,6 +51,9 @@ def evaluate(calculate_diffs,
              gt_path,
              ):
 
+    if not os.path.exists(data_path):
+        data_path = download_data("/".join(data_path.split("/")[:-1]))
+
     ## Load ground truth
     x_gt, y_gt, rg_gt, yb_gt = load_ground_truth(gt_path)
 

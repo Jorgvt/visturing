@@ -71,6 +71,9 @@ def evaluate(calculate_diffs,
              data_path: str = "Data/Experiment_1",
              gt_path: str = "ground_truth_decalogo",
              ): # Tuple (lambdas, diffs, correlation)
+
+    if not os.path.exists(data_path):
+        data_path = download_data("/".join(data_path.split("/")[:-1]))
     
     imgs, ref_img, lambdas = load_data(data_path)
 

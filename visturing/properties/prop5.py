@@ -37,6 +37,9 @@ def evaluate(calculate_diffs,
              gt_path,
              ):
 
+    if not os.path.exists(data_path):
+        data_path = download_data("/".join(data_path.split("/")[:-1]))
+
     x_gt, y1_gt, y2_gt, y3_gt = load_ground_truth(gt_path)
 
     noises = {p.split("/")[-1].split(".")[0].split("_")[-1]: np.load(p) for p in glob(os.path.join(data_path, "*npy")) if "noises" in p}

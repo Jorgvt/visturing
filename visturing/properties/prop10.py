@@ -48,6 +48,9 @@ def evaluate(calculate_diffs,
              gt_path,
              ):
     
+    if not os.path.exists(data_path):
+        data_path = download_data("/".join(data_path.split("/")[:-1]))
+
     xs = np.load(os.path.join(data_path, "contrasts.npy"))
     data_high = {re.findall("high_(\w+)\.", p)[0]: np.load(p) for p in glob(os.path.join(data_path, "*")) if "high" in p}
     data_low = {re.findall("low_(\w+)\.", p)[0]: np.load(p) for p in glob(os.path.join(data_path, "*")) if "_low_" in p}

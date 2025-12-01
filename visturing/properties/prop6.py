@@ -63,6 +63,9 @@ def evaluate(calculate_diffs,
              gt_path,
              ):
 
+    if not os.path.exists(data_path):
+        data_path = download_data("/".join(data_path.split("/")[:-1]))
+
     x_gt, y_gt, rg_gt, yb_gt = load_ground_truth(gt_path)
     data = {re.findall("noise_(\w+)\.", p)[0]: np.load(p) for p in glob(os.path.join(data_path, "*")) if "gabor" in p}
     freqs = np.array([1.5, 3, 6, 12, 24])
