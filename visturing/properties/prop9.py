@@ -11,7 +11,7 @@ import scipy.io as sio
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 
-from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth, calculate_correlations, prepare_and_correlate, prepare_and_correlate_order, calculate_spearman, calculate_pearson_stack
+from visturing.ranking import calculate_spearman
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
                       return_freqs: bool = False, # Return the frequencies corresponding to each response
