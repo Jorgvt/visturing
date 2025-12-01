@@ -8,7 +8,7 @@ import scipy.io as sio
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 
-from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth, calculate_correlations, prepare_and_correlate, prepare_and_correlate_order, calculate_spearman
+from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth
 
 def load_data(root_path: str):
     freqs = np.load(os.path.join(root_path, "freq.npy"))
