@@ -2,7 +2,14 @@ import wget
 from zipfile import ZipFile
 import os
 
-import prop1, prop2, prop3_4, prop5, prop6_7, prop8, prop9, prop10
+from ..properties import prop1
+from ..properties import prop2
+from ..properties import prop3_4
+from ..properties import prop5
+from ..properties import prop6_7
+from ..properties import prop8
+from ..properties import prop9
+from ..properties import prop10
 
 def download_ground_truth(data_path, # Path to download the data
                   ):
