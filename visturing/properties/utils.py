@@ -26,7 +26,7 @@ def evaluate_all(calculate_diffs,
                  ):
 
     if not os.path.exists(gt_path):
-        gt_path = download_data("/".join(gt_path.split("/")[:-1]))
+        gt_path = download_ground_truth("/".join(gt_path.split("/")[:-1]))
 
     results = {}
     results["prop1"] = prop1.evaluate(calculate_diffs, os.path.join(data_path, "Experiment_1"), gt_path)
