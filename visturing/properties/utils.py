@@ -18,15 +18,15 @@ def download_ground_truth(data_path, # Path to download the data
     with ZipFile(path) as zipObj:
         zipObj.extractall(data_path)
     os.remove(path)
-    return os.path.join(data_path)
+    return os.path.join(gt_path, "ground_truth")
 
 def evaluate_all(calculate_diffs,
                  data_path, # Path to the root directory
                  gt_path,
                  ):
 
-    if not os.path.exists(gt_path):
-        gt_path = download_ground_truth("/".join(gt_path.split("/")[:-1]))
+    if not os.path.exists(os.path.join(gt_path, "ground_truth")):
+        gt_path = download_ground_truth(gt_path)
 
     results = {}
     results["prop1"] = prop1.evaluate(calculate_diffs, os.path.join(data_path, "Experiment_1"), gt_path)
