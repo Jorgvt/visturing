@@ -2,14 +2,18 @@ import wget
 from zipfile import ZipFile
 import os
 
-from ..properties import prop1
-from ..properties import prop2
-from ..properties import prop3_4
-from ..properties import prop5
-from ..properties import prop6_7
-from ..properties import prop8
-from ..properties import prop9
-from ..properties import prop10
+import wget
+from zipfile import ZipFile
+import os
+
+from . import prop1
+from . import prop2
+from . import prop3_4
+from . import prop5
+from . import prop6_7
+from . import prop8
+from . import prop9
+from . import prop10
 
 def download_ground_truth(data_path, # Path to download the data
                   ):
@@ -22,7 +26,7 @@ def download_ground_truth(data_path, # Path to download the data
 
 def evaluate_all(calculate_diffs,
                  data_path, # Path to the root directory
-                 gt_path,
+                 gt_path, # Path to the ground truth
                  ):
 
     if not os.path.exists(gt_path):
