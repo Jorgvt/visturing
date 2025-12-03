@@ -8,7 +8,7 @@ from zipfile import ZipFile
 import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
-import scipy.stats as stats
+from .math_utils import pearson_correlation
 
 from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth
 
@@ -124,7 +124,7 @@ def evaluate(calculate_diffs,
     d_cat = np.concatenate([
             d_a.ravel(), d_rg.ravel(), d_yb.ravel(),
         ])
-    pearson = stats.pearsonr(
+    pearson = pearson_correlation(
         b_cat[~nan_mask], d_cat[~nan_mask]
     )
 

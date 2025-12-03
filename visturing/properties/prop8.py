@@ -9,7 +9,7 @@ from zipfile import ZipFile
 import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
-import scipy.stats as stats
+from .math_utils import pearson_correlation
 
 from visturing.ranking import prepare_data, calculate_spearman
 
@@ -99,7 +99,7 @@ def evaluate(calculate_diffs,
 
     order_corr["high"] = calculate_spearman(b_high, ideal_ordering=[0,1,2,3,4])
 
-    pearson = stats.pearsonr(
+    pearson = pearson_correlation(
         np.concatenate([
             b_low[0], b_high[0]
         ]),
