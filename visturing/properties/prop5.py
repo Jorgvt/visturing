@@ -64,7 +64,7 @@ def evaluate(calculate_diffs,
     diffs_a = diffs.pop("a")
     diffs_inv = {k:v/diffs_a for k, v in diffs.items()}
 
-    k = diffs_inv.keys()[0]
+    k = list(diffs_inv.keys())[0]
     a, b, c, d1 = prepare_data(freqs[1:], diffs_inv[k][1:], x_gt, y1_gt)
     a, b, c, d2 = prepare_data(freqs[1:], diffs_inv[k][1:], x_gt, y2_gt)
     a, b, c, d3 = prepare_data(freqs[1:], diffs_inv[k][1:], x_gt, y3_gt)
