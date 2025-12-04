@@ -2,10 +2,6 @@ import wget
 from zipfile import ZipFile
 import os
 
-import wget
-from zipfile import ZipFile
-import os
-
 from . import prop1
 from . import prop2
 from . import prop3_4
