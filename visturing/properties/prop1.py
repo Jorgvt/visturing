@@ -10,8 +10,6 @@ from natsort import natsorted
 import cv2
 from scipy.stats import pearsonr
 
-from .math_utils import pearson_correlation
-
 def load_ground_truth(root_path: str = "ground_truth_decalogo", # Path to the root containing all the ground truth files
                       ): # Tuple (x, achromatic, red-green, yellow-blue)
     data = sio.loadmat(os.path.join(root_path, "spectral_sensitivities.mat"))
@@ -84,9 +82,15 @@ def evaluate(calculate_diffs,
 
     x, a, _, _ = load_ground_truth(gt_path)
     a_interp = np.interp(lambdas, x, a)
-    corr = pearson_correlation(diffs, a_interp)
+    corr, p_value = pearsonr(diffs, a_interp)
 
-    return {"lambdas": lambdas, "diffs": diffs, "pearson_corr": corr}
+    return {"lambdas": lambdas,
+            "diffs": diffs,
+            "correlations":
+                {"pearson": corr},
+            "p_values":
+                {"pearson": p_value},
+            }
 
 def download_data(data_path, # Path to download the data
                   ):
