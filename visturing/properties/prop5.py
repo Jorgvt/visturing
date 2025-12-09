@@ -6,7 +6,7 @@ from zipfile import ZipFile
 import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
-from .math_utils import pearson_correlation
+from scipy.stats import pearsonr
 
 from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth
 
@@ -76,9 +76,14 @@ def evaluate(calculate_diffs,
     ds = np.stack([d1, d2, d3])
 
     order_corr = calculate_correlations_with_ground_truth(diffs_stack, ds)
-    pearson_corr = pearson_correlation(diffs_stack.ravel(), ds.ravel())
+    pearson_corr, p_value_pearson = pearsonr(diffs_stack.ravel(), ds.ravel())
 
-    return {"ds": ds, "pearson_corr": pearson_corr, "kendall_corr": order_corr}
+    return {"ds": ds,
+            "correlations":
+                {"pearson": pearson_corr, "kendall": order_corr},
+            "p_values":
+                {"pearson": p_value_pearson},
+        }
 
 def download_data(data_path, # Path to download the data
                   ):

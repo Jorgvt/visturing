@@ -6,7 +6,7 @@ from zipfile import ZipFile
 import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
-from .math_utils import pearson_correlation
+from scipy.stats import pearsonr
 
 from visturing.ranking import prepare_data, calculate_spearman
 
@@ -101,7 +101,7 @@ def evaluate(calculate_diffs,
     # Calculate Pearson
     ## Achromatic
 
-    corr_achrom = pearson_correlation(
+    corr_achrom, p_value_achrom = pearsonr(
         np.concatenate([
             b[0].ravel(),
         ]),
@@ -110,7 +110,7 @@ def evaluate(calculate_diffs,
         ])
     )
     ## Both Chromatics Together
-    corr_chroma = pearson_correlation(
+    corr_chroma, p_value_chroma = pearsonr(
         np.concatenate([
             b_rg[2].ravel(), b_yb[2].ravel(),
         ]),
@@ -118,9 +118,14 @@ def evaluate(calculate_diffs,
             d_rg.ravel(), d_yb.ravel(),
         ])
     )
-    correlations = {"pearson_achrom": corr_achrom, "pearson_chrom": corr_chroma, "kendall_corr": spearman_correlations}
+    correlations = {"pearson_achrom": corr_achrom, "pearson_chrom": corr_chroma, "kendall": spearman_correlations}
 
-    return {"diffs": diffs, "correlations": correlations}
+    return {"diffs": diffs,
+            "correlations": correlations,
+            "p_values":
+                {"achrom": p_value_achrom,
+                 "red_green": p_value_chroma},
+            }
 
 def download_data(data_path, # Path to download the data
                   ):

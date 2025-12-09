@@ -84,9 +84,15 @@ def evaluate(calculate_diffs,
 
     x, a, _, _ = load_ground_truth(gt_path)
     a_interp = np.interp(lambdas, x, a)
-    corr = pearson_correlation(diffs, a_interp)
+    corr, p_value = pearsonr(diffs, a_interp)
 
-    return {"lambdas": lambdas, "diffs": diffs, "pearson_corr": corr}
+    return {"lambdas": lambdas,
+            "diffs": diffs,
+            "correlations":
+                {"pearson": corr},
+            "p_values":
+                {"pearson": p_value},
+            }
 
 def download_data(data_path, # Path to download the data
                   ):
