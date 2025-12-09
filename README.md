@@ -27,16 +27,9 @@ Results: The code reproduces the paper's findings, showing that models trained o
 To reproduce the experiments, clone this repository and install the required dependencies. It is recommended to use a virtual environment (Anaconda or venv).
 
 ```Bash
-# Clone the repository
-git clone https://github.com/Jorgvt/visturing.git
-cd visturing
+# Install the repository
+pip install git+https://github.com/Jorgvt/visturing.git
 
-# Create a virtual environment (optional)
-conda create -n visturing python=3.9
-conda activate visturing
-
-# Install dependencies
-pip install -r requirements.txt
 ```
 
 
@@ -55,7 +48,7 @@ visturing/: Scripts implementing the 10 psychophysical/physiological tests.
 ## Citation
 If you use this code, data, or methodology in your research, please cite the original article:
 
-
+```
 @article{vila2025turing,
   title={A Turing Test for Artificial Nets devoted to Vision},
   author={Vila-Tomás, Jorge and Hernández-Cámara, Pablo and Li, Qiang and Laparra, Valero and Malo, Jesús},
@@ -64,6 +57,7 @@ If you use this code, data, or methodology in your research, please cite the ori
   doi={10.3389/frai.2025.1665874},
   url={https://www.frontiersin.org/journals/artificial-intelligence/articles/10.3389/frai.2025.1665874/abstract}
 }
+```
 
 
 👥 Authors
