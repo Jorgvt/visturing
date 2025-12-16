@@ -9,7 +9,7 @@ import scipy.io as sio
 import matplotlib.pyplot as plt
 from .math_utils import pearson_correlation
 
-from visturing.ranking import prepare_data, calculate_spearman
+from .ranking import prepare_data, calculate_spearman
 
 def load_ground_truth(data_path: str = "ground_truth_decalogo", # Path to the root containing all the ground truth files
                       ): # Tuple of tuples (x, y), (x_c, red-green), (x_c, yellow-blue)
