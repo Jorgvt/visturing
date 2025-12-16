@@ -2,6 +2,8 @@ import numpy as np
 from jax import numpy as jnp
 import scipy.stats as stats
 
+from .math_utils import kendall_correlation
+
 def calculate_spearman(experimental_curve, ideal_ordering):
     ordered_curves = (-experimental_curve).argsort(axis=0)
     ideal_ordering = jnp.array(ideal_ordering)[:,None].repeat(ordered_curves.shape[1], axis=1)
@@ -9,12 +11,12 @@ def calculate_spearman(experimental_curve, ideal_ordering):
 
 def calculate_correlations(ground_truth, experimental):
     return {
-        "spearman": stats.spearmanr(ground_truth.ravel(),
-                                    experimental.ravel())[0],
-        "kendall": stats.kendalltau(ground_truth.ravel(),
-                                    experimental.ravel())[0],
-        "pearson": stats.pearsonr(ground_truth.ravel(),
-                                    experimental.ravel())[0],
+        # "spearman": stats.spearmanr(ground_truth.ravel(),
+        #                             experimental.ravel())[0],
+        "kendall": kendall_correlation(ground_truth.ravel(),
+                                       experimental.ravel()),
+        # "pearson": stats.pearsonr(ground_truth.ravel(),
+        #                             experimental.ravel())[0],
     }
 
 def calculate_correlations_with_ground_truth(experimental_curve, ground_truth):
