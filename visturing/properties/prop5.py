@@ -63,7 +63,9 @@ def evaluate(calculate_diffs,
 
     diffs_a = diffs.pop("a")
     diffs_inv = {k:v/(diffs_a+1e-6) for k, v in diffs.items()}
-    diffs_inv = {k:np.clip((v-1)/np.max(v-1), a_min=1e-6, a_max=np.inf) for k, v in diffs_inv.items()}
+    diffs_inv = {k:(v-1) for k, v in diffs_inv.items()}
+    diffs_inv = {k:np.clip(v, a_min=1e-6, a_max=np.inf) for k, v in diffs_inv.items()}
+    diffs_inv = {k:v/v.max() for k, v in diffs_inv.items()}
 
     k = list(diffs_inv.keys())[0]
     a, b, c, d1 = prepare_data(freqs[1:], diffs_inv[k][1:], x_gt, y1_gt)
@@ -80,6 +82,7 @@ def evaluate(calculate_diffs,
     pearson_corr, p_value_pearson = pearsonr(diffs_stack.ravel(), ds.ravel())
 
     return {"ds": ds,
+            "diffs": diffs_stack,
             "correlations":
                 {"pearson": pearson_corr, "kendall": order_corr},
             "p_values":
