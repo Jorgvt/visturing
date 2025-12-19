@@ -62,7 +62,7 @@ def evaluate(calculate_diffs,
 
 
     diffs_a = diffs.pop("a")
-    diffs_inv = {k:v/(diffs_a+1e-6) for k, v in diffs.items()}
+    diffs_inv = {k:(diffs_a+1e-6)/v for k, v in diffs.items()}
     diffs_inv = {k:(v-1) for k, v in diffs_inv.items()}
     diffs_inv = {k:np.clip(v, a_min=1e-6, a_max=np.inf) for k, v in diffs_inv.items()}
     diffs_inv = {k:v/v.max() for k, v in diffs_inv.items()}
