@@ -4,6 +4,7 @@ import wget
 from zipfile import ZipFile
 
 import numpy as np
+import jax
 from jax import numpy as jnp
 import scipy.io as sio
 import matplotlib.pyplot as plt
@@ -64,7 +65,7 @@ def evaluate(calculate_diffs,
     diffs_a = diffs.pop("a")
     diffs_inv = {k:diffs_a/(v+1e-6) for k, v in diffs.items()}
     diffs_inv = {k:(v-1) for k, v in diffs_inv.items()}
-    diffs_inv = {k:jnp.clip(v, a_min=1e-6) for k, v in diffs_inv.items()}
+    # diffs_inv = {k:jnp.clip(v, a_min=1e-6) for k, v in diffs_inv.items()}
     diffs_inv = {k:v/v.max() for k, v in diffs_inv.items()}
 
     k = list(diffs_inv.keys())[0]
@@ -86,6 +87,65 @@ def evaluate(calculate_diffs,
             "correlations":
                 {"pearson": pearson_corr, "kendall": order_corr},
             }
+
+def get_evaluate_data(data_path,
+                      gt_path,
+                      ):
+    if not os.path.exists(data_path):
+        data_path = download_data("/".join(data_path.split("/")[:-1]))
+
+    x_gt, y1_gt, y2_gt, y3_gt = load_ground_truth(gt_path)
+
+    noises = {p.split("/")[-1].split(".")[0].split("_")[-1]: np.load(p) for p in glob(os.path.join(data_path, "*npy")) if "noises" in p}
+    bgs = {p.split("/")[-1].split(".")[0].split("_")[-1]: np.load(p) for p in glob(os.path.join(data_path, "*npy")) if "background" in p}
+    freqs = np.load(os.path.join(data_path, "freqs.npy"))
+    return x_gt, y1_gt, y2_gt, y3_gt, noises, bgs, freqs
+
+def evaluate_nodata(calculate_diffs,
+                    x_gt, y1_gt, y2_gt, y3_gt,
+                    noises, bgs, freqs,
+                    ):
+
+    diffs = {}
+    for k, noise in noises.items():
+        bg = bgs[k][None,...]
+        diffs_it = []
+        for noise_it in noise:
+            diff = calculate_diffs(noise_it, bg)
+            diffs_it.append(diff)
+            # break
+        diffs_it = jnp.array(diffs_it)
+        diffs[k] = diffs_it.mean(axis=0)
+        # break
+
+    diffs_a = diffs.pop("a")
+    # print(diffs)
+    diffs_inv = {k:diffs_a/(v+1e-6) for k, v in diffs.items()}
+    diffs_inv = {k:(v-1) for k, v in diffs_inv.items()}
+    # diffs_inv = {k:jnp.clip(v, a_min=1e-6) for k, v in diffs_inv.items()}
+    # diffs_inv = {k:jax.nn.softplus(v) for k, v in diffs_inv.items()}
+    diffs_inv = {k:v/v.max() for k, v in diffs_inv.items()}
+
+    k = list(diffs_inv.keys())[0]
+    a, b, c, d1 = prepare_data(freqs[1:], diffs_inv[k][1:], x_gt, y1_gt)
+    a, b, c, d2 = prepare_data(freqs[1:], diffs_inv[k][1:], x_gt, y2_gt)
+    a, b, c, d3 = prepare_data(freqs[1:], diffs_inv[k][1:], x_gt, y3_gt)
+
+
+    diffs_stack = jnp.stack([diffs_inv["3"][1:],
+                            diffs_inv["6"][1:],
+                            diffs_inv["12"][1:]])
+    ds = jnp.stack([d1, d2, d3])
+
+    order_corr = calculate_correlations_with_ground_truth(diffs_stack, ds)
+    pearson_corr = pearson_correlation(diffs_stack.ravel(), ds.ravel())
+
+    return {"ds": ds,
+            "diffs": diffs_stack,
+            "correlations":
+                {"pearson": pearson_corr, "kendall": order_corr},
+            }
+
 
 def download_data(data_path, # Path to download the data
                   ):

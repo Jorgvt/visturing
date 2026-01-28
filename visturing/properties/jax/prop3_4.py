@@ -9,7 +9,7 @@ import scipy.io as sio
 import matplotlib.pyplot as plt
 from .math_utils import pearson_correlation
 
-from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth
+from .ranking import prepare_data, calculate_correlations_with_ground_truth
 
 def load_data(root_path: str):
     freqs = np.load(os.path.join(root_path, "freq.npy"))
@@ -46,6 +46,22 @@ def plot_ground_truth(x,
     axes.set_ylabel("Sensitivity")
     return fig, axes
 
+
+def load_data_evaluate(data_path,
+                      gt_path,
+                      ):
+
+    if not os.path.exists(data_path):
+        data_path = download_data("/".join(data_path.split("/")[:-1]))
+
+    ## Load ground truth
+    x_gt, y_gt, rg_gt, yb_gt = load_ground_truth(gt_path)
+
+    ## Load data
+    noises = {p.split("/")[-1].split(".")[0].split("_")[-1]:np.load(p) for p in glob(os.path.join(data_path, "*")) if "noises" in p}
+    bg = np.load(os.path.join(data_path, "background.npy"))
+    freqs = load_data(data_path)
+    return freqs, bg, noises, x_gt, y_gt, rg_gt, yb_gt
 
 def evaluate(calculate_diffs,
              data_path,
@@ -100,6 +116,47 @@ def evaluate(calculate_diffs,
             "correlations":
                 {"pearson": pearson_corr, "kendall": order_corr},
             }
+
+def evaluate_nodata(calculate_diffs, freqs, bg, noises, x_gt, y_gt, rg_gt, yb_gt):
+
+    ## Calculate the differences
+    diffs = {}
+    for k, noises_ in noises.items():
+        diffs_it = []
+        for noise_it in noises_:
+            diff = calculate_diffs(noise_it, bg[None,...])
+            # print(noise_it.shape, bg.shape, diff.shape)
+            diffs_it.append(diff)
+            # break
+        diffs_it = jnp.array(diffs_it)
+        diffs[k] = diffs_it.mean(axis=0)
+
+    gt_s = jnp.stack([y_gt,
+                    rg_gt,
+                    yb_gt])
+
+
+    diffs_s = jnp.stack([diffs["a"],
+                        diffs["rg"],
+                        diffs["yb"]])
+
+    bs, ds = [], []
+    for d, gt in zip(diffs_s, gt_s):
+        a, b, c, d = prepare_data(freqs, d, x_gt, gt)
+        bs.append(b)
+        ds.append(d)
+    b = jnp.array(bs)
+    d = jnp.array(ds)
+
+    order_corr = calculate_correlations_with_ground_truth(b, d)
+    pearson_corr = pearson_correlation(b.ravel(), d.ravel())
+
+    return {"diffs_s": diffs_s,
+            "correlations":
+                {"pearson": pearson_corr, "kendall": order_corr},
+            }
+
+
 
 def download_data(data_path, # Path to download the data
                   ):
