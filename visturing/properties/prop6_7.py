@@ -128,7 +128,8 @@ def evaluate(calculate_diffs,
         b_cat[~nan_mask], d_cat[~nan_mask]
     )
 
-    return {"correlations":
+    return {"diffs": diffs,
+            "correlations":
                 {"kendall": order_corr, "pearson": pearson},
             "p_values":
                 {"pearson": p_value_pearson}

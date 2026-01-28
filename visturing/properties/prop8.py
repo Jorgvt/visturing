@@ -108,7 +108,9 @@ def evaluate(calculate_diffs,
         ])
     )
 
-    return {"correlations":
+    return {"diffs":
+                {"low": diffs_low, "high": diffs_high},
+            "correlations":
                 {"kendall": order_corr, "pearson": pearson},
             "p_values":
                 {"pearson": p_value_pearson}
