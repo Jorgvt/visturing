@@ -42,6 +42,11 @@ def prepare_data(x_e, y_e, x_gt, y_gt):
         x_shorter = x_e
         y_shorter = y_e
 
+    # print(x_wider.shape, y_wider.shape, x_shorter.shape, y_shorter.shape)
+    # if len(y_wider) > 1:
+    #     y_wider_interp = np.array([np.interp(x_shorter, x_wider, row) for row in y_wider])
+    # else:
+    #     y_wider_interp = np.interp(x_shorter, x_wider, y_wider)
     y_wider_interp = np.interp(x_shorter, x_wider, y_wider)
     if gt_shorter:
         return x_shorter, y_wider_interp, x_shorter, y_shorter
@@ -52,3 +57,9 @@ def prepare_and_correlate(x_e, y_e, x_gt, y_gt):
     x_e, y_e, x_gt, y_gt = prepare_data(x_e, y_e, x_gt, y_gt)
     return calculate_correlations(y_e, y_gt)
     
+def prepare_and_correlate_order(x_e, y_e, x_gt, y_gt):
+    x_e, y_e, x_gt, y_gt = prepare_data(x_e, y_e, x_gt, y_gt)
+    return calculate_correlations_with_ground_truth(y_e, y_gt)
+    
+def calculate_pearson_stack(s1, s2):
+    return stats.pearsonr(s1.ravel(), s2.ravel())
