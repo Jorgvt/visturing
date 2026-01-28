@@ -45,3 +45,13 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/jorgvt/visturing"
 "Bug Tracker" = "https://github.com/jorgvt/visturing/issues"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+    "pytest>=8.3.5",
+]
+jax = [
+    "flax>=0.3.3",
+    "jax>=0.4.13",
+]
