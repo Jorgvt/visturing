@@ -55,7 +55,7 @@ def evaluate_all(calculate_diffs,
 
 
 def build_evaluation_table(data):
-    """Takes as input the output of the `evaluate_all` function and returns a table like in the paper.""""
+    """Takes as input the output of the `evaluate_all` function and returns a table like in the paper."""
 
     # Extract only the correlations to ease processing
     data = {p:c["correlations"] for p, c in data.items()}
