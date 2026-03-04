@@ -2,6 +2,9 @@ import wget
 from zipfile import ZipFile
 import os
 
+import numpy as np
+import pandas as pd
+
 from . import prop1
 from . import prop2
 from . import prop3_4
@@ -49,3 +52,83 @@ def evaluate_all(calculate_diffs,
     print('prop10 done')
 
     return results
+
+
+def build_evaluation_table(data):
+    """Takes as input the output of the `evaluate_all` function and returns a table like in the paper.""""
+
+    # Extract only the correlations to ease processing
+    data = {p:c["correlations"] for p, c in data.items()}
+
+
+    # Helper to safely extract and format values
+    def get_val(val):
+        return f"{val:.2f}" if val is not None and not np.isnan(val) else "-"
+
+    rows = []
+
+    # Prop. 1
+    rows.append({
+        "Property": "Prop. 1",
+        "RMSE fit (ρ_p)": get_val(data.get('prop1', {}).get('pearson')),
+        "Curve Order (ρ_k)": "-" # Not present in the provided JSON for Prop 1
+    })
+
+    # Prop. 2 achrom.
+    rows.append({
+        "Property": "Prop. 2 achrom.",
+        "RMSE fit (ρ_p)": get_val(data.get('prop2', {}).get('pearson_achrom')),
+        "Curve Order (ρ_k)": get_val(data.get('prop2', {}).get('kendall', {}).get('achrom', {}).get('kendall'))
+    })
+
+    # Prop. 2 chrom.
+    p2_chrom_rg = get_val(data.get('prop2', {}).get('kendall', {}).get('red_green', {}).get('kendall'))
+    p2_chrom_yb = get_val(data.get('prop2', {}).get('kendall', {}).get('yellow_blue', {}).get('kendall'))
+    rows.append({
+        "Property": "Prop. 2 chrom.",
+        "RMSE fit (ρ_p)": get_val(data.get('prop2', {}).get('pearson_chrom')),
+        "Curve Order (ρ_k)": f"RG: {p2_chrom_rg} | YB: {p2_chrom_yb}"
+    })
+
+    # Prop. 3 & 4
+    rows.append({
+        "Property": "Prop. 3 & 4",
+        "RMSE fit (ρ_p)": get_val(data.get('prop3_4', {}).get('pearson')),
+        "Curve Order (ρ_k)": get_val(data.get('prop3_4', {}).get('kendall', {}).get('kendall'))
+    })
+
+    # Prop. 5
+    rows.append({
+        "Property": "Prop. 5",
+        "RMSE fit (ρ_p)": get_val(data.get('prop5', {}).get('pearson')),
+        "Curve Order (ρ_k)": get_val(data.get('prop5', {}).get('kendall', {}).get('kendall'))
+    })
+
+    # Prop. 6 & 7
+    p67_a = get_val(data.get('prop6_7', {}).get('kendall', {}).get('achrom', {}).get('kendall'))
+    p67_rg = get_val(data.get('prop6_7', {}).get('kendall', {}).get('red_green', {}).get('kendall'))
+    p67_yb = get_val(data.get('prop6_7', {}).get('kendall', {}).get('yellow_blue', {}).get('kendall'))
+    rows.append({
+        "Property": "Prop. 6 & 7",
+        "RMSE fit (ρ_p)": get_val(data.get('prop6_7', {}).get('pearson')),
+        "Curve Order (ρ_k)": f"A: {p67_a} | RG: {p67_rg} | YB: {p67_yb}"
+    })
+
+    # Props 8, 9, 10 (Note: In the image, 8, 9, and 10 share the same RMSE fit. 
+    # Your data only has it under prop8, so we'll reuse it for 9 and 10).
+    shared_rmse = get_val(data.get('prop8', {}).get('pearson'))
+
+    for prop_key, prop_name in [('prop8', 'Prop. 8'), ('prop9', 'Prop. 9'), ('prop10', 'Prop. 10')]:
+        low_f = get_val(data.get(prop_key, {}).get('kendall', {}).get('low', {}).get('kendall'))
+        high_f = get_val(data.get(prop_key, {}).get('kendall', {}).get('high', {}).get('kendall'))
+        
+        rows.append({
+            "Property": prop_name,
+            "RMSE fit (ρ_p)": shared_rmse,
+            "Curve Order (ρ_k)": f"Low f: {low_f} | High f: {high_f}"
+        })
+
+    # Convert to DataFrame for a clean tabular format
+    df = pd.DataFrame(rows)
+
+    return df
