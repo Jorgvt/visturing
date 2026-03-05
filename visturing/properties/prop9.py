@@ -61,24 +61,29 @@ def evaluate(calculate_diffs,
     diffs_high = defaultdict(dict)
     for name, chroma in data_high.items():
         for f, dat in zip(f_mask, chroma):
+            if f == "No mask": continue
             diffs_ = calculate_diffs(dat, dat[0:1])
             diffs_high[name][f] = diffs_
 
     diffs_low = defaultdict(dict)
     for name, chroma in data_low.items():
         for f, dat in zip(f_mask, chroma):
+            if f == "No mask": continue
             diffs_ = calculate_diffs(dat, dat[0:1])
             diffs_low[name][f] = diffs_
 
+    order_corr = {}
 
     diffs_low_s = np.array([a for a in diffs_low["achrom"].values()])
-
-    order_corr = {}
-    order_corr["low"] = calculate_spearman(diffs_low_s, ideal_ordering=[0,4,5,3,2,1])
+    order_low_1 = calculate_spearman(diffs_low_s[:2], ideal_ordering=[0,1])
+    order_low_2 = calculate_spearman(diffs_low_s[1:], ideal_ordering=[3,2,1,0])
+    order_corr["low"] = {k1:(v1*2+v2*4)/6 for (k1,v1), (k2,v2) in zip(order_low_1.items(), order_low_2.items())}
 
     diffs_high_s = np.array([a for a in diffs_high["achrom"].values()])
+    order_high_1 = calculate_spearman(diffs_high_s[:2], ideal_ordering=[0,1])
+    order_high_2 = calculate_spearman(diffs_high_s[1:], ideal_ordering=[3,2,1,0])
+    order_corr["high"] = {k1:(v1*2+v2*4)/6 for (k1,v1), (k2,v2) in zip(order_low_1.items(), order_low_2.items())}
 
-    order_corr["high"] = calculate_spearman(diffs_high_s, ideal_ordering=[0,1,2,3,5,4])
     return {"diffs":
                 {"low": diffs_low,
                  "high": diffs_high},
