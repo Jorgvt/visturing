@@ -71,13 +71,18 @@ def evaluate(calculate_diffs,
             diffs_low[name][f] = diffs_
 
 
-    diffs_low_s = np.array([a for a in diffs_low["achrom"].values()])
 
     order_corr = {}
-    order_corr["low"] = calculate_spearman(diffs_low_s, ideal_ordering=[0,7,6,5,3,1,2,4])
+
+    diffs_low_s = np.array([a for a in diffs_low["achrom"].values()])
+    order_low_1 = calculate_spearman(diffs_low_s[:5], ideal_ordering=[4,3,2,1,0])
+    order_low_2 = calculate_spearman(diffs_low_s[4:], ideal_ordering=[0,1,2])
+    order_corr["low"] = (order_low_1*5 + order_low_2*3)/8
 
     diffs_high_s = np.array([a for a in diffs_high["achrom"].values()])
-    order_corr["high"] = calculate_spearman(diffs_high_s, ideal_ordering=[0,7,6,5,3,1,2,4])
+    order_high_1 = calculate_spearman(diffs_high_s[:5], ideal_ordering=[4,3,2,1,0])
+    order_high_2 = calculate_spearman(diffs_high_s[4:], ideal_ordering=[0,1,2])
+    order_corr["high"] = (order_low_1*5 + order_low_2*3)/8
 
     return {"diffs":
                 {"low": diffs_low_s,
