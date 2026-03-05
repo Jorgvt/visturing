@@ -92,7 +92,7 @@ def evaluate(calculate_diffs,
             bg_idx = np.argwhere(np.where(cc==bg, True, False).all(axis=(1,2,3))).squeeze()
             diff = calculate_diffs(cc, bg[None,...])
             bg_mask = -1*np.ones_like(diff)
-            bg_mask = bg_mask.at[bg_idx:].set(1)
+            bg_mask[bg_idx:] = 1
             diff = bg_mask*diff
             diffs[c].append(diff)
     diffs = {k: np.array(v) for k, v in diffs.items()}
