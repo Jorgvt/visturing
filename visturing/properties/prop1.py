@@ -65,7 +65,7 @@ def load_data(root_path: str,
     imgs = np.array([load_img(p) for p in imgs_path])
     lambdas = np.linspace(lambdas.min(), lambdas.max(), num=len(imgs))
 
-    return imgs, ref_img, lambdas
+    return imgs/255., ref_img/255., lambdas
 
 
 def evaluate(calculate_diffs,
