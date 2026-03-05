@@ -79,7 +79,10 @@ def evaluate(calculate_diffs,
     diffs_high_s = np.array([a for a in diffs_high["achrom"].values()])
     order_corr["high"] = calculate_spearman(diffs_high_s, ideal_ordering=[0,7,6,5,3,1,2,4])
 
-    return {"correlations":
+    return {"diffs":
+                {"low": diffs_low_s,
+                 "high": diffs_high_s},
+            "correlations":
                 {"kendall": order_corr},
             "p_values":
                 {}
