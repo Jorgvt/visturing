@@ -77,12 +77,23 @@ def evaluate(calculate_diffs,
     bgs = {p.split("/")[-1].split(".")[0][4:]: np.load(p) for p in glob(os.path.join(data_path, "*npy")) if "bgs" in p}
 
     diffs = {}
-    for c in ["achrom", "red_green", "yellow_blue"]:
+    for c in ["achrom"]:
         diffs[c] = []
         data_ = data[c]
         bgs_ = bgs[c]
         for cc, bg in zip(data_, bgs_):
+            diff = calculate_diffs(cc, cc[0:1])
+            diffs[c].append(diff)
+    for c in ["red_green", "yellow_blue"]:
+        diffs[c] = []
+        data_ = data[c]
+        bgs_ = bgs[c]
+        for cc, bg in zip(data_, bgs_):
+            bg_idx = np.argwhere(np.where(cc==bg, True, False).all(axis=(1,2,3))).squeeze()
             diff = calculate_diffs(cc, bg[None,...])
+            bg_mask = -1*np.ones_like(diff)
+            bg_mask = bg_mask.at[bg_idx:].set(1)
+            diff = bg_mask*diff
             diffs[c].append(diff)
     diffs = {k: np.array(v) for k, v in diffs.items()}
 
