@@ -61,12 +61,14 @@ def evaluate(calculate_diffs,
     diffs_high = defaultdict(dict)
     for name, chroma in data_high.items():
         for f, dat in zip(f_mask, chroma):
+            if f == "No mask": continue
             diffs_ = calculate_diffs(dat, dat[0:1])
             diffs_high[name][f] = diffs_
 
     diffs_low = defaultdict(dict)
     for name, chroma in data_low.items():
         for f, dat in zip(f_mask, chroma):
+            if f == "No mask": continue
             diffs_ = calculate_diffs(dat, dat[0:1])
             diffs_low[name][f] = diffs_
 
