@@ -1,6 +1,7 @@
 import wget
 from zipfile import ZipFile
 import os
+import re
 
 import numpy as np
 import pandas as pd
@@ -132,3 +133,12 @@ def build_evaluation_table(data):
     df = pd.DataFrame(rows)
 
     return df
+
+def extract_numbers_from_table(table_results):
+    numbers = []
+    for e in table_results.to_numpy().ravel():
+        a = re.findall("[-+]?\d+\.\d+", e)
+        if len(a) > 0:
+            for n in a:
+                numbers.append(float(n))
+    return numbers
