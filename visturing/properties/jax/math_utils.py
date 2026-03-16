@@ -12,27 +12,42 @@ def pearson_correlation(vec1, vec2):
     denom *= ((vec2 - vec2_mean) ** 2).sum()**(1/2)
     return num / denom
 
-def kendall_correlation(x, y):
+# def kendall_correlation(x, y):
+#     n = x.shape[0]
+#
+#     # 1. Broadcast to compare every element with every other element
+#     # shape: (N, 1) - (1, N) -> (N, N)
+#     diff_x = x[:, None] - x[None, :]
+#     diff_y = y[:, None] - y[None, :]
+#
+#     # 2. Compute signs
+#     # sgn(x_i - x_j)
+#     sign_x = jnp.sign(diff_x)
+#     sign_y = jnp.sign(diff_y)
+#
+#     # 3. Compute Concordance
+#     # Result is 1 if concordant, -1 if discordant, 0 if tied
+#     concordance = sign_x * sign_y
+#
+#     # 4. Sum and Normalize
+#     # We sum the whole matrix (excluding diagonal where result is 0).
+#     # Since the matrix is symmetric, we divide by n(n-1) rather than n(n-1)/2
+#     # to account for the double counting.
+#     tau = jnp.sum(concordance) / (n * (n - 1))
+#
+#     return tau
+
+def kendall_correlation(x, y, temperature=0.1):
     n = x.shape[0]
     
-    # 1. Broadcast to compare every element with every other element
-    # shape: (N, 1) - (1, N) -> (N, N)
     diff_x = x[:, None] - x[None, :]
     diff_y = y[:, None] - y[None, :]
     
-    # 2. Compute signs
-    # sgn(x_i - x_j)
-    sign_x = jnp.sign(diff_x)
-    sign_y = jnp.sign(diff_y)
+    # Replace hard sign with a differentiable soft sign
+    soft_sign_x = jnp.tanh(diff_x / temperature)
+    soft_sign_y = jnp.tanh(diff_y / temperature)
     
-    # 3. Compute Concordance
-    # Result is 1 if concordant, -1 if discordant, 0 if tied
-    concordance = sign_x * sign_y
+    concordance = soft_sign_x * soft_sign_y
     
-    # 4. Sum and Normalize
-    # We sum the whole matrix (excluding diagonal where result is 0).
-    # Since the matrix is symmetric, we divide by n(n-1) rather than n(n-1)/2
-    # to account for the double counting.
     tau = jnp.sum(concordance) / (n * (n - 1))
-    
     return tau
