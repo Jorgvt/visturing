@@ -1,3 +1,4 @@
+from typing import Sequence
 import os
 import re
 from glob import glob
@@ -12,6 +13,7 @@ import matplotlib.pyplot as plt
 import scipy.stats as stats
 
 from visturing.ranking import calculate_spearman
+from visturing.properties.noise import generate_noise, generate_noise_iters, generate_plain
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
                       return_freqs: bool = False, # Return the frequencies corresponding to each response
@@ -103,3 +105,93 @@ def download_data(data_path, # Path to download the data
         zipObj.extractall(data_path)
     os.remove(path)
     return os.path.join(data_path, "Experiment_9")
+
+
+def generate_data(img_size: Sequence[int],
+                  freqs: Sequence[float],
+                  freqs_mask: Sequence[float],
+                  L: float,
+                  Cs: Sequence[float],
+                  C_mask: float,
+                  c: int, # 1 achrom 2 red-green 3 yellow-blue
+                  fs: int,
+                  theta: float = 0,
+                  delta_theta: float = 0,
+                  sigma_mask: float | None = None,
+                  R0: float = 0,
+                  n_iters: int = 1,
+                  ):
+
+    ## Generate the test
+    stimuli = np.empty(shape=(len(Cs), n_iters, len(freqs), *img_size, 3))
+    for i, C in enumerate(Cs):
+        stimuli_, freqs = generate_noise_iters(img_size, freqs=freqs, L=L, C=C, c=c, fs=fs, n_iters=n_iters, sigma_mask=sigma_mask, R0=R0, theta=theta, delta_theta=delta_theta)
+        stimuli[i] = stimuli_
+    stimuli = np.transpose(stimuli, axes=(1,0,2,3,4,5))
+
+    ## Generate a masking background
+    bg, f_bg = generate_noise(img_size, fs=fs, freqs=freqs_mask, L=L, C=C_mask, c=c, R0=R0, delta_theta=delta_theta, theta=theta)
+
+    ## Add the mask to the test
+    stimuli = stimuli + bg[None,None,:] - bg.mean()
+
+    ## Generate the plain image
+    plain = generate_plain(img_size, L=L)
+
+    ## Add the mask to the plain image
+    plain = plain + bg - bg.mean()
+
+
+    return stimuli, plain, freqs
+
+def evaluate_gen(calculate_diffs,
+                 img_size: Sequence[int],
+                 freqs: Sequence[float],
+                 freqs_mask: Sequence[float],
+                 L: float,
+                 Cs: Sequence[float],
+                 C_mask: float,
+                 fs: int,
+                 sigma_mask: float | None = None,
+                 theta: float = 0,
+                 delta_theta: float = 0,
+                 n_iters: int = 1,
+                 return_stimuli: bool = False,
+                 ):
+
+    results = {}
+    if return_stimuli:
+        stimuli = {}
+    for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
+        ## Generate ground truth
+        stimuli_, plain, freqs = generate_data(
+                        img_size=img_size,
+                        freqs=freqs,
+                        freqs_mask=freqs_mask,
+                        L=L,
+                        Cs=Cs,
+                        C_mask=C_mask,
+                        c=c,
+                        fs=fs,
+                        sigma_mask=sigma_mask,
+                        n_iters=n_iters,
+                        theta=theta,
+                        delta_theta=delta_theta,
+                        )
+
+        if return_stimuli:
+            stimuli[name] = stimuli_
+
+        diffs = np.empty(shape=stimuli_.shape[:3])
+        for i, stims in enumerate(stimuli_):
+            for j, s in enumerate(stims):
+                diff = calculate_diffs(s, plain)
+                diffs[i,j] = diff
+
+        diffs = diffs.mean(axis=0)
+        results[name] = diffs
+
+    if return_stimuli:
+        return results, freqs, stimuli
+
+    return results, freqs

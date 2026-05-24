@@ -1,4 +1,5 @@
 import os
+from typing import Sequence
 from glob import glob
 import wget
 from zipfile import ZipFile
@@ -9,6 +10,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 
 from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth
+from visturing.properties.noise import generate_noise_iters, generate_plain
 
 def load_data(root_path: str):
     freqs = np.load(os.path.join(root_path, "freq.npy"))
@@ -112,3 +114,58 @@ def download_data(data_path, # Path to download the data
         zipObj.extractall(data_path)
     os.remove(path)
     return os.path.join(data_path, "Experiment_3_4")
+
+def generate_data(img_size: Sequence[int],
+                  freqs: Sequence[int],
+                  L: float,
+                  C: float,
+                  c: int, # 1 achrom 2 red-green 3 yellow-blue
+                  fs: int,
+                  theta: float = 0,
+                  delta_theta: float = 0,
+                  sigma_mask: float | None = None,
+                  R0: float = 0,
+                  n_iters: int = 1,
+                  ):
+
+    stimuli, freqs = generate_noise_iters(img_size, freqs=freqs, L=L, C=C, c=c, fs=fs, n_iters=n_iters, sigma_mask=sigma_mask, R0=R0, theta=theta, delta_theta=delta_theta)
+
+    ## Generate the plain image
+    plain = generate_plain(img_size, L=L)
+
+    return stimuli, plain, freqs
+
+def evaluate_gen(calculate_diffs,
+                 img_size: Sequence[int],
+                 freqs: Sequence[float],
+                 L: float,
+                 C: float,
+                 fs: int,
+                 sigma_mask: float | None = None,
+                 theta: float = 0,
+                 delta_theta: float = 0,
+                 n_iters: int = 1,
+                 return_stimuli: bool = False,
+                 ):
+
+    results = {}
+    if return_stimuli:
+        stimuli = {}
+    for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
+        ## Generate ground truth
+        stimuli_, plain, freqs = generate_data(img_size=img_size, freqs=freqs, L=L, C=C, c=c, fs=fs, sigma_mask=sigma_mask, n_iters=n_iters, theta=theta, delta_theta=delta_theta)
+        if return_stimuli:
+            stimuli[name] = stimuli_
+
+        diffs = np.empty(shape=stimuli_.shape[:2])
+        for i, stims in enumerate(stimuli_):
+            diff = calculate_diffs(stims, plain)
+            diffs[i] = diff
+
+        diffs = diffs.mean(axis=0)
+        results[name] = diffs
+
+    if return_stimuli:
+        return results, freqs, stimuli
+
+    return results, freqs
