@@ -1,3 +1,4 @@
+from typing import Sequence
 import os
 from glob import glob
 import wget
@@ -9,6 +10,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 
 from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth
+from visturing.properties.noise import generate_noise_iters, generate_plain, generate_noise
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
                       ): # Tuple (x, y1, y2, y3)
@@ -99,3 +101,77 @@ def download_data(data_path, # Path to download the data
         zipObj.extractall(data_path)
     os.remove(path)
     return os.path.join(data_path, "Experiment_5")
+
+def generate_data(img_size: Sequence[int],
+                  freqs: Sequence[int],
+                  freqs_mask: Sequence[float],
+                  L: float,
+                  C: float,
+                  c: int, # 1 achrom 2 red-green 3 yellow-blue
+                  fs: int,
+                  theta: float = 0,
+                  theta_mask: float = 0,
+                  delta_theta: float = 0,
+                  sigma_mask: float | None = None,
+                  R0: float = 0,
+                  n_iters: int = 1,
+                  ):
+
+    stimuli, freqs = generate_noise_iters(img_size, freqs=freqs, L=L, C=C, c=c, fs=fs, n_iters=n_iters, sigma_mask=sigma_mask, R0=R0, theta=theta, delta_theta=delta_theta)
+
+    ## Generate the mask
+    bgs, freqs_bg = generate_noise(img_size, fs=fs, freqs=freqs_mask, L=L, C=C, c=c, R0=R0, delta_theta=delta_theta, theta=theta_mask)
+
+    stimuli_bg = np.empty(shape=(n_iters, len(freqs_mask), len(freqs), *img_size, 3))
+    for i, bg in enumerate(bgs):
+        ## Add the mask to the test
+        stimuli_bg[:,i] = stimuli + bg[None,None,:] - bg.mean()
+
+    plains = np.empty(shape=(len(freqs_mask), *img_size, 3))
+    for i, bg in enumerate(bgs):
+        ## Generate the plain image
+        plain = generate_plain(img_size, L=L)
+
+        ## Add the mask to the plain image
+        plains[i] = plain + bg - bg.mean()
+
+    return stimuli_bg, plains, freqs
+
+def evaluate_gen(calculate_diffs,
+                 img_size: Sequence[int],
+                 freqs: Sequence[float],
+                 freqs_mask: Sequence[float],
+                 L: float,
+                 C: float,
+                 fs: int,
+                 sigma_mask: float | None = None,
+                 theta: float = 0,
+                 delta_theta: float = 0,
+                 n_iters: int = 1,
+                 return_stimuli: bool = False,
+                 ):
+
+    results = {}
+    if return_stimuli:
+        stimuli = {}
+    for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
+        ## Generate ground truth
+        stimuli_, plain_, freqs = generate_data(img_size=img_size, freqs=freqs, freqs_mask=freqs_mask, L=L, C=C, c=c, fs=fs, sigma_mask=sigma_mask, n_iters=n_iters, theta=theta, delta_theta=delta_theta)
+        if return_stimuli:
+            stimuli[name] = stimuli_
+
+        diffs = np.empty(shape=stimuli_.shape[:3])
+        for i, stims in enumerate(stimuli_):
+            for j, (s, plain) in enumerate(zip(stims, plain_)):
+                # print(f"Stims: {s.shape}")
+                # print(f"Plain: {plain.shape}")
+                diff = calculate_diffs(s, plain)
+                diffs[i,j] = diff
+
+        diffs = diffs.mean(axis=0)
+        results[name] = diffs
+
+    if return_stimuli:
+        return results, freqs, stimuli
+
+    return results, freqs
