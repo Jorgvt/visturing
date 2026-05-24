@@ -1,3 +1,4 @@
+from typing import Sequence
 import os
 import re
 from glob import glob
@@ -12,6 +13,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 
 from visturing.ranking import prepare_data, calculate_spearman
+from visturing.properties.noise import generate_noise, generate_noise_iters, generate_plain
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
                       return_freqs: bool = False, # Return the frequencies corresponding to each response
@@ -126,3 +128,107 @@ def download_data(data_path, # Path to download the data
         zipObj.extractall(data_path)
     os.remove(path)
     return os.path.join(data_path, "Experiment_8")
+
+def generate_data(img_size: Sequence[int],
+                  freq: Sequence[float],
+                  freq_mask: Sequence[float],
+                  L: float,
+                  Cs: Sequence[float],
+                  Cs_mask: float,
+                  c: int, # 1 achrom 2 red-green 3 yellow-blue
+                  fs: int,
+                  theta: float,
+                  theta_mask: float,
+                  delta_theta: float = 0,
+                  sigma_mask: float | None = None,
+                  R0: float = 0,
+                  n_iters: int = 1,
+                  ):
+
+    ## Generate the test
+    stimuli = np.empty(shape=(n_iters, len(Cs), *img_size, 3))
+    for i, C in enumerate(Cs):
+        stimuli_, thetas = generate_noise_iters(img_size, freqs=freq, L=L, C=C, c=c, fs=fs, n_iters=n_iters, sigma_mask=sigma_mask, R0=R0, theta=theta, delta_theta=delta_theta)
+        stimuli[:,i] = stimuli_[:,0]
+    # stimuli = np.transpose(stimuli, axes=(1,0,2,3,4))
+
+    ## Generate a masking background
+    bgs = np.empty(shape=(len(Cs_mask), *img_size, 3))
+    for i, C_mask in enumerate(Cs_mask):
+        bg, theta_bg = generate_noise(img_size, fs=fs, freqs=freq_mask, L=L, C=C_mask, c=c, R0=R0, delta_theta=delta_theta, theta=theta_mask)
+        bgs[i] = bg
+
+    stimuli_bg = np.empty(shape=(n_iters, len(Cs_mask), len(Cs), *img_size, 3))
+    for i, bg in enumerate(bgs):
+        ## Add the mask to the test
+        stimuli_bg[:,i] = stimuli + bg - bg.mean()
+
+    ## Generate the plain image
+    plain = generate_plain(img_size, L=L)
+
+    ## Add the mask to the plain image
+    plain = plain + bgs - bgs.mean()
+
+
+    return stimuli_bg, plain, Cs_mask
+
+def evaluate_gen(calculate_diffs,
+                 img_size: Sequence[int],
+                 freq: Sequence[float],
+                 freq_mask: Sequence[float],
+                 L: float,
+                 Cs: Sequence[float],
+                 Cs_mask: float,
+                 fs: int,
+                 sigma_mask: float | None = None,
+                 theta: float = 0,
+                 theta_mask: float = 0,
+                 delta_theta: float = 0,
+                 n_iters: int = 1,
+                 return_stimuli: bool = False,
+                 ):
+
+    results = {}
+    if return_stimuli:
+        stimuli = {}
+    for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
+        ## Generate ground truth
+        stimuli_, plain_, freqs = generate_data(
+                        img_size=img_size,
+                        freq=freq,
+                        freq_mask=freq_mask,
+                        L=L,
+                        Cs=Cs,
+                        Cs_mask=Cs_mask,
+                        c=c,
+                        fs=fs,
+                        sigma_mask=sigma_mask,
+                        n_iters=n_iters,
+                        theta=theta,
+                        theta_mask=theta_mask,
+                        delta_theta=delta_theta,
+                        )
+
+        if return_stimuli:
+            stimuli[name] = stimuli_
+
+        diffs = np.empty(shape=stimuli_.shape[:3])
+        for i, stims in enumerate(stimuli_):
+            for j, (s, plain) in enumerate(zip(stims, plain_)):
+                diff = calculate_diffs(s, plain)
+                diffs[i,j] = diff
+                # fig, axes  = plt.subplots(2,10)
+                # for k, ax in enumerate(axes[0].ravel()):
+                #     ax.imshow(s[k])
+                #     ax.set_title(f"{diff[k]:.3f}")
+                # axes[1,5].imshow(plain)
+                # for ax in axes.ravel(): ax.axis("off")
+                # plt.show()
+
+        diffs = diffs.mean(axis=0)
+        results[name] = diffs
+
+    if return_stimuli:
+        return results, freqs, stimuli
+
+    return results, freqs
