@@ -10,10 +10,12 @@ from zipfile import ZipFile
 import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
-import scipy.stats as stats
+from scipy.stats import pearsonr
 
 from visturing.ranking import calculate_spearman
 from visturing.properties.noise import generate_noise, generate_noise_iters, generate_plain
+from visturing.properties.formula import incremental_threshold_spatio_temp
+from visturing.properties import prop8
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
                       return_freqs: bool = False, # Return the frequencies corresponding to each response
@@ -150,10 +152,11 @@ def evaluate_gen(calculate_diffs,
                  freqs_mask: Sequence[float],
                  L: float,
                  Cs: Sequence[float],
-                 C_mask: float,
+                 Cs_mask: Sequence[float],
                  fs: int,
                  sigma_mask: float | None = None,
                  theta: float = 0,
+                 theta_mask: float = 0,
                  delta_theta: float = 0,
                  n_iters: int = 1,
                  return_stimuli: bool = False,
@@ -164,34 +167,104 @@ def evaluate_gen(calculate_diffs,
         stimuli = {}
     for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
         ## Generate ground truth
-        stimuli_, plain, freqs = generate_data(
+        stimuli_, plain, _ = prop8.generate_data(
                         img_size=img_size,
                         freqs=freqs,
                         freqs_mask=freqs_mask,
                         L=L,
                         Cs=Cs,
-                        C_mask=C_mask,
+                        Cs_mask=Cs_mask,
                         c=c,
                         fs=fs,
                         sigma_mask=sigma_mask,
                         n_iters=n_iters,
                         theta=theta,
+                        theta_mask=theta_mask,
                         delta_theta=delta_theta,
                         )
 
         if return_stimuli:
             stimuli[name] = stimuli_
 
-        diffs = np.empty(shape=stimuli_.shape[:3])
+        diffs = np.empty(shape=stimuli_.shape[:5])
         for i, stims in enumerate(stimuli_):
             for j, s in enumerate(stims):
-                diff = calculate_diffs(s, plain)
+                diff = calculate_diffs(s, plain[j,None,None])
                 diffs[i,j] = diff
 
         diffs = diffs.mean(axis=0)
         results[name] = diffs
 
-    if return_stimuli:
-        return results, freqs, stimuli
+    ## Get ground truth to calculate correlation
+    gts = {}
+    for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
+        gt = get_ground_truth(
+            freqs=freqs,
+            freqs_mask=freqs_mask,
+            C=Cs,
+            Cs_mask=Cs_mask,
+            c=c
+        )
+        ## Skip 0s as of now
+        gts[name] = gt
+ 
+    res_flat = np.array([a.ravel() for a in results.values()]).ravel()
+    gts_flat = np.array([a.ravel() for a in gts.values()]).ravel()
 
-    return results, freqs
+    correlation = pearsonr(res_flat, gts_flat)
+
+    if return_stimuli:
+        return results, freqs, stimuli, correlation
+
+    return results, freqs, correlation
+
+def get_ground_truth(
+                    freqs: Sequence[float],
+                    freqs_mask: Sequence[float],
+                    C: Sequence[float],
+                    Cs_mask: Sequence[float],
+                    c: int,
+                    ):
+
+    fs_test = freqs
+    cs_test = C
+    if c == 1:
+        kind = 1
+    elif c == 2:
+        kind = 4
+    elif c == 3:
+        kind = 4
+
+    fs_mask = freqs_mask
+    cs_mask = Cs_mask
+
+    sups = np.empty(shape=(len(fs_mask), len(cs_mask), len(fs_test), len(cs_test)))
+    for ii, fm in enumerate(fs_mask):
+        for jj, Cm in enumerate(cs_mask):
+            S_malo = np.zeros((len(fs_test), len(cs_test)))
+            # --- Calcular sensibilidad con el masker ---
+            for i, f_val in enumerate(fs_test):
+                for j, C_val in enumerate(cs_test):
+                    Delta_C, _, _, _, _ = incremental_threshold_spatio_temp(
+                        f_val, 0, 0, C_val, fm, 0, 0, Cm, c, kind 
+                    )
+                    S_malo[i,j] = 1 / Delta_C
+            # sups.append(S_malo)
+            sups[ii,jj] = S_malo
+
+    sups_0 = np.empty(shape=(len(fs_mask), len(cs_mask), len(fs_test), len(cs_test)))
+    for ii, fm in enumerate(fs_mask):
+        for jj, Cm in enumerate(cs_mask):
+            S_malo = np.zeros((len(fs_test), len(cs_test)))
+            # --- Calcular sensibilidad con el masker ---
+            for i, f_val in enumerate(fs_test):
+                for j, C_val in enumerate(cs_test):
+                    Delta_C, _, _, _, _ = incremental_threshold_spatio_temp(
+                        f_val, 0, 0, C_val, 0, 0, 0, Cm, c, kind 
+                    )
+                    S_malo[i,j] = 1 / Delta_C
+            # sups.append(S_malo)
+            sups_0[ii,jj] = S_malo
+
+
+    return (1/sups)*sups_0
