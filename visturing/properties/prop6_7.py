@@ -14,6 +14,7 @@ from scipy.stats import pearsonr
 
 from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth
 from visturing.properties.noise import generate_noise_iters, generate_plain, generate_noise
+from visturing.properties.formula import incremental_threshold_spatio_temp
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
                       ): # Tuple (x, y, y_rg, y_yb)
@@ -217,7 +218,72 @@ def evaluate_gen(calculate_diffs,
         diffs = diffs.mean(axis=0)
         results[name] = diffs
 
-    if return_stimuli:
-        return results, freqs, stimuli
+    for name, r in results.items():
+        print(f"{name}: {r.shape}")
 
-    return results, freqs
+    ## Get ground truth to calculate correlation
+    gts = {}
+    for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
+        gt, Z = get_ground_truth(
+            freqs=freqs,
+            C=Cs,
+            c=c
+        )
+        ## Skip 0s as of now
+        gts[name] = Z[1:]
+ 
+    res_flat = np.array([a.ravel() for a in results.values()]).ravel()
+    gts_flat = np.array([a.ravel() for a in gts.values()]).ravel()
+
+    correlation = pearsonr(res_flat, gts_flat)
+
+    if return_stimuli:
+        return results, freqs, stimuli, correlation
+
+    return results, freqs, correlation
+
+def get_ground_truth(
+                    freqs: Sequence[float],
+                    C: Sequence[float],
+                    c: int,
+                    ):
+
+    fs_test = freqs
+    cs_test = C
+    if c == 1:
+        kind = 1
+    elif c == 2:
+        kind = 4
+    elif c == 3:
+        kind = 4
+
+    fs_mask = np.array([0.])
+    cs_mask = np.array([0.])
+
+    sups = []
+    for fm in fs_mask:
+        Cm = cs_mask
+        S_malo = np.zeros((len(fs_test), len(cs_test)))
+        # --- Calcular sensibilidad con el masker ---
+        for i, f_val in enumerate(fs_test):
+            for j, C_val in enumerate(cs_test):
+                Delta_C, _, _, _, _ = incremental_threshold_spatio_temp(
+                    f_val, 0, 0, C_val, fm, 0, 0, Cm, c, kind 
+                )
+                S_malo[i,j] = 1 / Delta_C
+        sups.append(S_malo)
+
+    sups = np.array(sups)
+    print(f"Sups: {sups.shape}")
+
+    ## Include 0s and cumsum to obtain response curves
+    Cs_ = np.insert(C, 0, 0)
+    A, B = np.meshgrid(freqs, Cs_)
+    Z_ = sups[0].T
+    Z = np.zeros(shape=(Z_.shape[0]+1, Z_.shape[1]))
+    Z[1:] = Z_
+    Z = Z.cumsum(axis=0)
+
+
+    return sups, Z
+    # return sups[0][:,0]
