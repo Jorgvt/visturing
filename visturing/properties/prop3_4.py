@@ -175,8 +175,7 @@ def evaluate_gen(calculate_diffs,
         elif name == "yellow-blue": c = 3
 
         gt_ = get_ground_truth(freqs=freqs, C=[C], c=c)
-        if return_gt:
-            gt[name] = gt_
+        gt[name] = gt_
 
     ## Correlations have to be calculated all together
     correlations = {}
