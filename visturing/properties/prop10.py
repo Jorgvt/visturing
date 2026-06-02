@@ -11,10 +11,11 @@ from zipfile import ZipFile
 import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
-import scipy.stats as stats
+from scipy.stats import pearsonr
 
 from visturing.ranking import calculate_spearman
 from visturing.properties.noise import generate_noise, generate_noise_iters, generate_plain
+from visturing.properties.formula import incremental_threshold_spatio_temp
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
                       return_freqs: bool = False, # Return the frequencies corresponding to each response
@@ -110,11 +111,11 @@ def download_data(data_path, # Path to download the data
     return os.path.join(data_path, "Experiment_10")
 
 def generate_data(img_size: Sequence[int],
-                  freq: Sequence[float],
-                  freq_mask: Sequence[float],
+                  freqs: Sequence[float],
+                  freq_mask: float,
                   L: float,
                   Cs: Sequence[float],
-                  C_mask: float,
+                  Cs_mask: Sequence[float],
                   c: int, # 1 achrom 2 red-green 3 yellow-blue
                   fs: int,
                   theta: float,
@@ -126,22 +127,25 @@ def generate_data(img_size: Sequence[int],
                   ):
 
     ## Generate the test
-    stimuli = np.empty(shape=(n_iters, len(Cs), *img_size, 3))
-    for i, C in enumerate(Cs):
-        stimuli_, thetas = generate_noise_iters(img_size, freqs=freq, L=L, C=C, c=c, fs=fs, n_iters=n_iters, sigma_mask=sigma_mask, R0=R0, theta=theta, delta_theta=delta_theta)
-        stimuli[:,i] = stimuli_[:,0]
-    # stimuli = np.transpose(stimuli, axes=(1,0,2,3,4))
+    stimuli = np.empty(shape=(n_iters, len(thetas_mask), len(Cs_mask), len(freqs), len(Cs), *img_size, 3))
+    for i, theta_mask in enumerate(thetas_mask):
+        for j, c_mask in enumerate(Cs_mask):
+            for k, C in enumerate(Cs):
+                stimuli_, thetas = generate_noise_iters(img_size, freqs=freqs, L=L, C=C, c=c, fs=fs, n_iters=n_iters, sigma_mask=sigma_mask, R0=R0, theta=theta, delta_theta=delta_theta)
+                stimuli[:,i,j,:,k] = stimuli_
 
     ## Generate a masking background
-    bgs = np.empty(shape=(len(thetas_mask), *img_size, 3))
+    bgs = np.empty(shape=(len(thetas_mask), len(Cs_mask), len(freqs), *img_size, 3))
     for i, theta_mask in enumerate(thetas_mask):
-        bg, theta_bg = generate_noise(img_size, fs=fs, freqs=freq_mask, L=L, C=C_mask, c=c, R0=R0, delta_theta=delta_theta, theta=theta_mask)
-        bgs[i] = bg
+        for j, C_mask in enumerate(Cs_mask):
+            bg, theta_bg = generate_noise(img_size, fs=fs, freqs=freqs, L=L, C=C_mask, c=c, R0=R0, delta_theta=delta_theta, theta=theta_mask)
+            bgs[i,j] = bg
 
-    stimuli_bg = np.empty(shape=(n_iters, len(thetas_mask), len(Cs), *img_size, 3))
-    for i, bg in enumerate(bgs):
-        ## Add the mask to the test
-        stimuli_bg[:,i] = stimuli + bg - bg.mean()
+    stimuli_bg = np.empty_like(stimuli)
+    for i, bg_ in enumerate(bgs):
+        for j, bg in enumerate(bg_):
+            ## Add the mask to the test
+            stimuli_bg[:,i,j] = stimuli[:,i,j] + bg[None,:,None,...] - bg.mean()
 
     ## Generate the plain image
     plain = generate_plain(img_size, L=L)
@@ -154,11 +158,11 @@ def generate_data(img_size: Sequence[int],
 
 def evaluate_gen(calculate_diffs,
                  img_size: Sequence[int],
-                 freq: Sequence[float],
+                 freqs: Sequence[float],
                  freq_mask: Sequence[float],
                  L: float,
                  Cs: Sequence[float],
-                 C_mask: float,
+                 Cs_mask: float,
                  fs: int,
                  sigma_mask: float | None = None,
                  theta: float = 0,
@@ -173,13 +177,13 @@ def evaluate_gen(calculate_diffs,
         stimuli = {}
     for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
         ## Generate ground truth
-        stimuli_, plain_, freqs = generate_data(
+        stimuli_, plain_, _ = generate_data(
                         img_size=img_size,
-                        freq=freq,
+                        freqs=freqs,
                         freq_mask=freq_mask,
                         L=L,
                         Cs=Cs,
-                        C_mask=C_mask,
+                        Cs_mask=Cs_mask,
                         c=c,
                         fs=fs,
                         sigma_mask=sigma_mask,
@@ -188,14 +192,18 @@ def evaluate_gen(calculate_diffs,
                         thetas_mask=thetas_mask,
                         delta_theta=delta_theta,
                         )
+        print(f"Stimuli_: {stimuli_.shape}")
 
         if return_stimuli:
             stimuli[name] = stimuli_
 
-        diffs = np.empty(shape=stimuli_.shape[:3])
+        diffs = np.empty(shape=stimuli_.shape[:5])
         for i, stims in enumerate(stimuli_):
             for j, (s, plain) in enumerate(zip(stims, plain_)):
-                diff = calculate_diffs(s, plain)
+                # print(f"Stims: {stims.shape}")
+                # print(f"Plain: {plain.shape}")
+                diff = calculate_diffs(s, plain[None,:,:,None])
+                # print(f"Diff: {diff.shape}")
                 diffs[i,j] = diff
                 # fig, axes  = plt.subplots(2,10)
                 # for k, ax in enumerate(axes[0].ravel()):
@@ -208,7 +216,64 @@ def evaluate_gen(calculate_diffs,
         diffs = diffs.mean(axis=0)
         results[name] = diffs
 
-    if return_stimuli:
-        return results, freqs, stimuli
+    ## Get ground truth to calculate correlation
+    gts = {}
+    for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
+        gt = get_ground_truth(
+            freqs=freqs,
+            thetas_mask=thetas_mask,
+            C=Cs,
+            Cs_mask=Cs_mask,
+            c=c
+        )
+        ## Skip 0s as of now
+        gts[name] = gt
+ 
+    res_flat = np.array([a.ravel() for a in results.values()]).ravel()
+    gts_flat = np.array([a.ravel() for a in gts.values()]).ravel()
 
-    return results, freqs
+    correlation = pearsonr(res_flat, gts_flat)
+    if return_stimuli:
+        return results, freqs, stimuli, correlation
+
+    return results, freqs, correlation
+
+def get_ground_truth(
+                    freqs: Sequence[float],
+                    thetas_mask: Sequence[float],
+                    C: Sequence[float],
+                    Cs_mask: Sequence[float],
+                    c: int,
+                    ):
+
+    fs_test = freqs
+    cs_test = C
+    if c == 1:
+        kind = 1
+    elif c == 2:
+        kind = 4
+    elif c == 3:
+        kind = 4
+
+    fs_mask = freqs
+    cs_mask = Cs_mask
+
+    sups = np.empty(shape=(len(freqs), len(cs_mask), len(thetas_mask), len(cs_test)))
+    for ii, f_val in enumerate(freqs):
+        for jj, Cm in enumerate(cs_mask):
+            S_malo = np.zeros((len(thetas_mask), len(cs_test)))
+            # --- Calcular sensibilidad con el masker ---
+            for i, tm in enumerate(thetas_mask):
+                for j, C_val in enumerate(cs_test):
+                    fm = f_val
+                    tm = tm*np.pi/180
+                    fmx = np.cos(tm)*fm
+                    fmy = np.sin(tm)*fm
+                    Delta_C, _, _, _, _ = incremental_threshold_spatio_temp(
+                        f_val, 0, 0, C_val, fmx, fmy, 0, Cm, c, kind 
+                    )
+                    S_malo[i,j] = 1 / Delta_C
+            # sups.append(S_malo)
+            sups[ii,jj] = S_malo
+
+    return sups
