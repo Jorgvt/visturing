@@ -321,7 +321,6 @@ def generate_ground_truth_achrom():
     delta_5 = deltaE2000(lab5[0, :], lab5)
 
     achrom = np.stack([delta_1, delta_2, delta_3, delta_4, delta_5])
-    print(f"achrom: {achrom.shape}")
     return achrom, Yo, Y, To, T
 
 def generate_ground_truth_chrom():
@@ -436,6 +435,11 @@ def generate_data(img_size,
 
     rg = xyz2ng(rg)
 
+    ## The reference image must contain the square as well
+    for bg, idx in zip(rg_bg, [2,5,7,9,12]):
+            bg[h//2-hs//2:h//2+hs//2,
+               w//2-ws//2:w//2+ws//2] = colors_t[idx]
+
     ## Yellow-Blue
     yb_bg = np.empty(shape=(len(bg_d), *img_size,3))
     for i, bg in enumerate(bg_d):
@@ -450,6 +454,11 @@ def generate_data(img_size,
 
     yb = xyz2ng(yb)
     
+    ## The reference image must contain the square as well
+    for bg, idx in zip(yb_bg, [2,5,7,9,12]):
+            bg[h//2-hs//2:h//2+hs//2,
+               w//2-ws//2:w//2+ws//2] = colors_d[idx]
+
     return (achrom, rg, yb), (xyz2ng(achrom_bg), xyz2ng(rg_bg), xyz2ng(yb_bg))
 
 def evaluate_gen(calculate_diffs,
@@ -464,11 +473,17 @@ def evaluate_gen(calculate_diffs,
     (data_a, data_rg, data_yb), (bg_a, bg_rg, bg_yb) = generate_data(img_size, square_size)
     stimuli = {"achrom": data_a, "red-green": data_rg, "yellow-blue": data_yb}
     plains = {"achrom": bg_a, "red-green": bg_rg, "yellow-blue": bg_yb}
+    idxs_chrom = [2, 5, 7, 9, 12]
 
     results = {}
     for (name, stimuli_), (_, plain) in zip(stimuli.items(), plains.items()):
         diffs = np.empty(shape=stimuli_.shape[:2])
         for i, stims in enumerate(stimuli_):
+            # print(f"Plain: {plain.shape}")
+            # fig, axes = plt.subplots(1,5)
+            # for p, ax in zip(plain, axes.ravel()):
+            #     ax.imshow(p)
+            # plt.show()
             # fig, axes = plt.subplots(1, len(stims))
             # for ax, s in zip(axes.ravel(), stims):
             #     ax.imshow(s)
@@ -477,7 +492,10 @@ def evaluate_gen(calculate_diffs,
             # plt.imshow(plain[i])
             # plt.show()
             if name != "achrom":
-                diff = calculate_diffs(stims, plain[i])
+                diff = calculate_diffs(stims, plain[i:i+1])
+                mask = np.ones_like(diff)
+                mask[:idxs_chrom[i]] *= -1
+                diff = mask*diff
             else:
                 diff = calculate_diffs(stims, stims[0:1])
             diffs[i] = diff
