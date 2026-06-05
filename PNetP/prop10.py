@@ -68,7 +68,7 @@ def calculate_diffs(a, b):
 #     b = model.apply({"params": params, **state}, b, train=False)
 #     return ((a-b)**2).mean(axis=(-3,-2,-1))**(1/2)
 
-results, freqs, stimuli, correlation = prop.evaluate_gen(
+results, freqs, stimuli, correlation, gt = prop.evaluate_gen(
                 calculate_diffs=calculate_diffs,
                 img_size=img_size,
                 freqs=freqs,
