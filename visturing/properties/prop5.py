@@ -153,6 +153,7 @@ def evaluate_gen(calculate_diffs,
                  delta_theta: float = 0,
                  n_iters: int = 1,
                  return_stimuli: bool = False,
+                 return_gt: bool = False,
                  ):
 
     results = {}
@@ -172,7 +173,6 @@ def evaluate_gen(calculate_diffs,
                     delta_theta=delta_theta,
                     return_stimuli=False,
                     return_gt=False)
-    print(diffs_csf)
 
     for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
         ## Generate ground truth
@@ -183,9 +183,7 @@ def evaluate_gen(calculate_diffs,
         diffs = np.empty(shape=stimuli_.shape[:3])
         for i, stims in enumerate(stimuli_):
             for j, (s, plain) in enumerate(zip(stims, plain_)):
-                # print(f"Stims: {s.shape}")
-                # print(f"Plain: {plain.shape}")
-                diff = calculate_diffs(s, plain)
+                diff = calculate_diffs(s, plain[None,:])
                 diffs[i,j] = diff
 
         diffs = diffs.mean(axis=0)
@@ -208,14 +206,17 @@ def evaluate_gen(calculate_diffs,
             freqs_mask=freqs_mask,
             C=[C],
             C_mask=[C_mask],
-            c=3
+            c=c
         )
         gts[name] = gt
 
     res_flat = np.array([a.ravel() for a in csfs.values()]).ravel()
     gts_flat = np.array([a.ravel() for a in gts.values()]).ravel()
+    correlation = {}
+    for (name, res), (name, gt_) in zip(csfs.items(), gts.items()):
+        correlation[name] = pearsonr(res.ravel(), gt_.ravel())
 
-    correlation = pearsonr(res_flat, gts_flat)
+    correlation["global"] = pearsonr(res_flat, gts_flat)
 
     if return_stimuli:
         return results, freqs, stimuli, correlation

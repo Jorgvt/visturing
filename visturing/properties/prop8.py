@@ -215,18 +215,23 @@ def evaluate_gen(calculate_diffs,
         if return_stimuli:
             stimuli[name] = stimuli_
 
+        print(f"Name: {name}")
         diffs = np.empty(shape=stimuli_.shape[:5])
         for i, stims in enumerate(stimuli_):
             for j, (s, plain) in enumerate(zip(stims, plain_)):
-                diff = calculate_diffs(s, plain[:,None,None])
-                diffs[i,j] = diff
-                # fig, axes  = plt.subplots(2,10)
-                # for k, ax in enumerate(axes[0].ravel()):
-                #     ax.imshow(s[k])
-                #     ax.set_title(f"{diff[k]:.3f}")
-                # axes[1,5].imshow(plain)
-                # for ax in axes.ravel(): ax.axis("off")
-                # plt.show()
+                for k, (s_, plain__) in enumerate(zip(s, plain)):
+                    # print(f"S: {s_.shape}")
+                    # print(f"plain: {plain_.shape}")
+                    # print(f"plain2: {plain_[None,:].shape}")
+                    diff = calculate_diffs(s_, plain__[None,:])
+                    diffs[i,j,k] = diff
+                    # fig, axes  = plt.subplots(2,10)
+                    # for k, ax in enumerate(axes[0].ravel()):
+                    #     ax.imshow(s[k])
+                    #     ax.set_title(f"{diff[k]:.3f}")
+                    # axes[1,5].imshow(plain)
+                    # for ax in axes.ravel(): ax.axis("off")
+                    # plt.show()
 
         diffs = diffs.mean(axis=0)
         results[name] = diffs
@@ -250,7 +255,11 @@ def evaluate_gen(calculate_diffs,
     res_flat = np.array([a.ravel() for a in results.values()]).ravel()
     gts_flat = np.array([a.ravel() for a in gts.values()]).ravel()
 
-    correlation = pearsonr(res_flat, gts_flat)
+    correlation = {}
+    for (name, res), (name, gt_) in zip(results.items(), gts.items()):
+        correlation[name] = pearsonr(res.ravel(), gt_.ravel())
+
+    correlation["global"] = pearsonr(res_flat, gts_flat)
 
 
     if return_stimuli:
