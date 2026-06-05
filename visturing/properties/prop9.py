@@ -208,10 +208,14 @@ def evaluate_gen(calculate_diffs,
         ## Skip 0s as of now
         gts[name] = gt
  
+    correlation = {}
+    for (name, res), (name, gt_) in zip(results.items(), gts.items()):
+        correlation[name] = pearsonr(res.ravel(), gt_.ravel())
+
     res_flat = np.array([a.ravel() for a in results.values()]).ravel()
     gts_flat = np.array([a.ravel() for a in gts.values()]).ravel()
 
-    correlation = pearsonr(res_flat, gts_flat)
+    correlation["global"] = pearsonr(res_flat, gts_flat)
 
     if return_stimuli:
         return results, freqs, stimuli, correlation
