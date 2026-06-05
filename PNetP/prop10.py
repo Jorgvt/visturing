@@ -83,6 +83,7 @@ results, freqs, stimuli, correlation = prop.evaluate_gen(
                 thetas_mask=thetas_mask,
                 delta_theta=delta_theta,
                 return_stimuli=True,
+                return_gt=True,
                 )
 
 print(f"Correlation: {correlation}")

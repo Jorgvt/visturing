@@ -170,6 +170,7 @@ def evaluate_gen(calculate_diffs,
                  delta_theta: float = 0,
                  n_iters: int = 1,
                  return_stimuli: bool = False,
+                 return_gt: bool = False,
                  ):
 
     results = {}
