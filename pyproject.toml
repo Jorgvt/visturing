@@ -6,6 +6,9 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["visturing*"]
 
+[tool.uv.sources]
+paramperceptnet = { git = "https://github.com/Jorgvt/paramperceptnet.git" }
+
 [project]
 name = "visturing"
 version = "0.1.0"
@@ -14,7 +17,7 @@ authors = [
 ]
 description = "A collection of visual Turing tests and experiments."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -40,6 +43,7 @@ dependencies = [
   "matplotlib",
   "scipy",
   "pandas",
+  "perceptualtests>=0.1.4",
 ]
 
 [project.urls]
@@ -48,10 +52,14 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "datasets>=4.8.5",
+    "huggingface-hub>=1.17.0",
     "ipykernel>=6.29.5",
+    "paramperceptnet",
+    "plotly>=6.7.0",
     "pytest>=8.3.5",
 ]
 jax = [
-    "flax>=0.3.3",
-    "jax>=0.4.13",
+    "flax",
+    "jax",
 ]
