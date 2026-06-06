@@ -15,6 +15,8 @@ from scipy.stats import pearsonr
 from visturing.ranking import prepare_data, calculate_spearman
 from visturing.properties.noise import generate_noise, generate_noise_iters, generate_plain
 from visturing.properties.formula import incremental_threshold_spatio_temp
+from .utils import EvaluationResult
+
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
                       return_freqs: bool = False, # Return the frequencies corresponding to each response
@@ -189,6 +191,7 @@ def evaluate_gen(calculate_diffs,
                  delta_theta: float = 0,
                  n_iters: int = 1,
                  return_stimuli: bool = False,
+                 return_gt: bool = False,
                  ):
 
     results = {}
@@ -262,10 +265,13 @@ def evaluate_gen(calculate_diffs,
     correlation["global"] = pearsonr(res_flat, gts_flat)
 
 
-    if return_stimuli:
-        return results, freqs, stimuli, correlation
-
-    return results, freqs, correlation
+    return EvaluationResult(
+        results=results,
+        correlations=correlation,
+        stimuli=stimuli if return_stimuli else None,
+        gt=gts if return_gt else None,
+        freqs=freqs,
+    )
 
 def get_ground_truth(
                     freqs: Sequence[float],

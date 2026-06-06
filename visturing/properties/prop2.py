@@ -11,6 +11,8 @@ from scipy.stats import pearsonr
 
 from visturing.ranking import prepare_data, calculate_spearman
 from perceptualtests.color_matrices import Mxyz2ng, gamma
+from .utils import EvaluationResult
+
 
 def load_ground_truth(data_path: str = "ground_truth_decalogo", # Path to the root containing all the ground truth files
                       ): # Tuple of tuples (x, y), (x_c, red-green), (x_c, yellow-blue)
@@ -513,12 +515,10 @@ def evaluate_gen(calculate_diffs,
     correlations["pearson"] = pearsonr(preds, gts)[0]
 
 
-    if return_stimuli and return_gt:
-        return results, stimuli, correlations, gt
-    elif return_stimuli and not return_gt:
-        return results, stimuli, correlations
-    if not return_stimuli and return_gt:
-        return results, correlations, gt
-
-    return results, correlations
+    return EvaluationResult(
+        results=results,
+        correlations=correlations,
+        stimuli=stimuli if return_stimuli else None,
+        gt=gt if return_gt else None,
+    )
 

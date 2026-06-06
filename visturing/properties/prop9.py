@@ -16,6 +16,8 @@ from visturing.ranking import calculate_spearman
 from visturing.properties.noise import generate_noise, generate_noise_iters, generate_plain
 from visturing.properties.formula import incremental_threshold_spatio_temp
 from visturing.properties import prop8
+from .utils import EvaluationResult
+
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
                       return_freqs: bool = False, # Return the frequencies corresponding to each response
@@ -160,6 +162,7 @@ def evaluate_gen(calculate_diffs,
                  delta_theta: float = 0,
                  n_iters: int = 1,
                  return_stimuli: bool = False,
+                 return_gt: bool = False,
                  ):
 
     results = {}
@@ -167,7 +170,7 @@ def evaluate_gen(calculate_diffs,
         stimuli = {}
     for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
         ## Generate ground truth
-        stimuli_, plain, _ = prop8.generate_data(
+        stimuli_, plain_, _ = prop8.generate_data(
                         img_size=img_size,
                         freqs=freqs,
                         freqs_mask=freqs_mask,
@@ -186,12 +189,18 @@ def evaluate_gen(calculate_diffs,
         if return_stimuli:
             stimuli[name] = stimuli_
 
+        # diffs = np.empty(shape=stimuli_.shape[:5])
+        # for i, stims in enumerate(stimuli_):
+        #     for j, s in enumerate(stims):
+        #         diff = calculate_diffs(s, plain[j,None,None])
+        #         diffs[i,j] = diff
+
         diffs = np.empty(shape=stimuli_.shape[:5])
         for i, stims in enumerate(stimuli_):
-            for j, s in enumerate(stims):
-                diff = calculate_diffs(s, plain[j,None,None])
-                diffs[i,j] = diff
-
+            for j, (s, plain) in enumerate(zip(stims, plain_)):
+                for k, (s_, plain__) in enumerate(zip(s, plain)):
+                    diff = calculate_diffs(s_, plain__[None,:])
+                    diffs[i,j,k] = diff
         diffs = diffs.mean(axis=0)
         results[name] = diffs
 
@@ -217,10 +226,13 @@ def evaluate_gen(calculate_diffs,
 
     correlation["global"] = pearsonr(res_flat, gts_flat)
 
-    if return_stimuli:
-        return results, freqs, stimuli, correlation
-
-    return results, freqs, correlation
+    return EvaluationResult(
+        results=results,
+        correlations=correlation,
+        stimuli=stimuli if return_stimuli else None,
+        gt=gts if return_gt else None,
+        freqs=freqs,
+    )
 
 def get_ground_truth(
                     freqs: Sequence[float],

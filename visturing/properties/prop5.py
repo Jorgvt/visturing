@@ -13,6 +13,8 @@ from visturing.ranking import prepare_data, calculate_correlations_with_ground_t
 from visturing.properties.noise import generate_noise_iters, generate_plain, generate_noise
 from visturing.properties.formula import incremental_threshold_spatio_temp
 from visturing.properties import prop3_4
+from .utils import EvaluationResult
+
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
                       ): # Tuple (x, y1, y2, y3)
@@ -161,7 +163,7 @@ def evaluate_gen(calculate_diffs,
         stimuli = {}
 
     ## Obtain the values for the non-masked CSF
-    diffs_csf, _, _  = prop3_4.evaluate_gen(calculate_diffs,
+    res_csf  = prop3_4.evaluate_gen(calculate_diffs,
                     img_size=img_size,
                     freqs=freqs,
                     L=L,
@@ -173,6 +175,7 @@ def evaluate_gen(calculate_diffs,
                     delta_theta=delta_theta,
                     return_stimuli=False,
                     return_gt=False)
+    diffs_csf = res_csf.results
 
     for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
         ## Generate ground truth
@@ -218,10 +221,13 @@ def evaluate_gen(calculate_diffs,
 
     correlation["global"] = pearsonr(res_flat, gts_flat)
 
-    if return_stimuli:
-        return results, freqs, stimuli, correlation
-
-    return results, freqs, correlation
+    return EvaluationResult(
+        results=results,
+        correlations=correlation,
+        stimuli=stimuli if return_stimuli else None,
+        gt=gts if return_gt else None,
+        freqs=freqs,
+    )
 
 def get_ground_truth(
                     freqs: Sequence[float],

@@ -12,6 +12,8 @@ from scipy.stats import pearsonr
 from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth
 from visturing.properties.noise import generate_noise_iters, generate_plain
 from visturing.properties.formula import incremental_threshold_spatio_temp
+from .utils import EvaluationResult
+
 
 def load_data(root_path: str):
     freqs = np.load(os.path.join(root_path, "freq.npy"))
@@ -184,14 +186,13 @@ def evaluate_gen(calculate_diffs,
     correlations["pearson"] = pearsonr(preds, gts)[0]
 
 
-    if return_stimuli and return_gt:
-        return results, freqs, stimuli, correlations, gt
-    elif return_stimuli and not return_gt:
-        return results, freqs, stimuli, correlations
-    if not return_stimuli and return_gt:
-        return results, freqs, correlations, gt
-
-    return results, freqs, correlations
+    return EvaluationResult(
+        results=results,
+        correlations=correlations,
+        stimuli=stimuli if return_stimuli else None,
+        gt=gt if return_gt else None,
+        freqs=freqs,
+    )
 
 def get_ground_truth(
                     freqs: Sequence[float],

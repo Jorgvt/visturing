@@ -2,9 +2,19 @@ import wget
 from zipfile import ZipFile
 import os
 import re
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
+
+@dataclass
+class EvaluationResult:
+    results: Dict[str, Any]
+    correlations: Dict[str, Any]
+    stimuli: Optional[Dict[str, Any]] = None
+    gt: Optional[Dict[str, Any]] = None
+    freqs: Optional[Any] = None
 
 from . import prop1
 from . import prop2
