@@ -12,7 +12,8 @@ from scipy.stats import pearsonr
 from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth
 from visturing.properties.noise import generate_noise_iters, generate_plain
 from visturing.properties.formula import incremental_threshold_spatio_temp
-from .utils import EvaluationResult, run_batched
+from visturing.properties.prob_weight import get_weights
+from visturing.properties.utils import EvaluationResult, run_batched, weighted_pearson_correlation
 from .config import default_prop3_4_config as default_config
 
 
@@ -153,6 +154,7 @@ def evaluate_gen(calculate_diffs,
                  return_gt: bool = False,
                  batch_size: int | None = None,
                  verbose: bool = False,
+                 weight_prob: bool = False,
                  ):
 
     results = {}
@@ -190,14 +192,21 @@ def evaluate_gen(calculate_diffs,
         gt_ = get_ground_truth(freqs=freqs, C=[C], c=c)
         gt[name] = gt_
 
+    ## Obtain the weight following the probability of the images
+    weights = get_weights(freqs=freqs, Cs=[C], Bpp=3)
+
     ## Correlations have to be calculated all together
-    correlations = {}
+    correlations = {"non-weighted": {}, "weighted": {}}
     preds = np.stack([a for a in results.values()]).ravel()
     gts = np.stack([a for a in gt.values()]).ravel()
-    correlations["pearson"] = pearsonr(preds, gts)[0]
-    correlations["global"] = pearsonr(preds, gts)
+    weights_global = np.stack([a for a in weights.values()]).ravel()
+
+    correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts, np.ones_like(weights_global))
+    correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts, weights_global)
+
     for name in results.keys():
-        correlations[name] = pearsonr(results[name].ravel(), gt[name].ravel())
+        correlations["non-weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gt[name].ravel(), np.ones_like(weights[name]).ravel())
+        correlations["weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gt[name].ravel(), weights[name].ravel())
 
     return EvaluationResult(
         results=results,
