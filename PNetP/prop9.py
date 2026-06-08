@@ -7,7 +7,7 @@ from jax import random, numpy as jnp
 from flax.core import pop
 from model import Model
 from initialization import init_dn_gamma, init_cs, init_dn_cs, init_v1, init_dn_v1
-from visturing.properties import prop8 as prop
+from visturing.properties import prop9 as prop
 
 # Load the model
 key = random.PRNGKey(42)
@@ -50,18 +50,11 @@ freqs = np.array([2, 4, 6, 8, 10])
 theta_mask = np.array([0.])
 
 def calculate_diffs(a, b):
-    batch, m, h, w, c = a.shape
-    a = rearrange(a, "b bb h w c -> (b bb) h w c")
-    # b = rearrange(b, "b bb h w c -> (b bb) h w c")
-
     a = model.apply({"params": params, **state}, a, train=False)
     b = model.apply({"params": params, **state}, b, train=False)
-
-    a = rearrange(a, "(b bb) h w c -> b bb h w c", b=batch, bb=m)
-    # b = rearrange(b, "(b bb) h w c -> b bb h w c", b=batch, bb=m)
     return ((a-b)**2).mean(axis=(-3,-2,-1))**(1/2)
 
-results, freqs, stimuli, correlation = prop.evaluate_gen(
+res = prop.evaluate_gen(
                 calculate_diffs=calculate_diffs,
                 img_size=img_size,
                 freqs=freqs,
@@ -76,24 +69,45 @@ results, freqs, stimuli, correlation = prop.evaluate_gen(
                 theta_mask=theta_mask,
                 delta_theta=delta_theta,
                 return_stimuli=True,
+                return_gt=True,
                 )
+results, freqs, stimuli, correlation, gt = res.results, res.freqs, res.stimuli, res.correlations, res.gt
 
 print(f"Correlation: {correlation}")
 
-fig, axes = plt.subplots(stimuli["achrom"].shape[1], stimuli["achrom"].shape[2])
+# fig, axes = plt.subplots(stimuli["achrom"].shape[1], stimuli["achrom"].shape[2])
 
-for stimuli_ in stimuli.values():
-    for i, axs in enumerate(axes):
-        for j, ax in enumerate(axs):
-            ax.imshow(stimuli_[0,i,j])
-            ax.axis("off")
-    plt.show()
+# for stimuli_ in stimuli.values():
+#     for i, axs in enumerate(axes):
+#         for j, ax in enumerate(axs):
+#             ax.imshow(stimuli_[0,i,j])
+#             ax.axis("off")
+#     plt.show()
 
 fig, axes = plt.subplots(1,3)
-
-for i, (k, v) in enumerate(results.items()):
-    for j, vv in enumerate(v):
-        axes[i].plot(vv, label=freqs[j])
-    axes[i].set_title(k)
+for ax, (k, v) in zip(axes.ravel(), results.items()):
+    print(f"{k}: {v.shape}")
+    v = v.squeeze()
+    for i, a in enumerate(v.T):
+        ax.plot(a, label=freqs[i])
 plt.legend()
 plt.show()
+
+fig, axes = plt.subplots(1,3)
+for ax, (k, v) in zip(axes.ravel(), gt.items()):
+    print(f"{k}: {v.shape}")
+    v = v.squeeze()
+    for i, a in enumerate(v.T):
+        ax.plot(a, label=freqs[i])
+plt.legend()
+plt.show()
+
+
+# fig, axes = plt.subplots(1,3)
+
+# for i, (k, v) in enumerate(results.items()):
+#     for j, vv in enumerate(v):
+#         axes[i].plot(vv, label=freqs[j])
+#     axes[i].set_title(k)
+# plt.legend()
+# plt.show()

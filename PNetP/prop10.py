@@ -49,26 +49,12 @@ thetas_mask = np.linspace(0, 180, num=9)[:-1]
 
 
 def calculate_diffs(a, b):
-    # print(f"stim: {a.shape}")
-    # print(f"plain: {b.shape}")
-    batch, m, h, w, c = a.shape
-    a = rearrange(a, "b bb h w c -> (b bb) h w c")
-    # print(f"stim: {a.shape}")
-    # b = rearrange(b, "b bb h w c -> (b bb) h w c")
-
     a = model.apply({"params": params, **state}, a, train=False)
     b = model.apply({"params": params, **state}, b, train=False)
-
-    a = rearrange(a, "(b bb) h w c -> b bb h w c", b=batch, bb=m)
-    b = rearrange(b, "(b bb) h w c -> b bb h w c", b=batch, bb=1)
     return ((a-b)**2).mean(axis=(-3,-2,-1))**(1/2)
 
-# def calculate_diffs(a, b):
-#     a = model.apply({"params": params, **state}, a, train=False)
-#     b = model.apply({"params": params, **state}, b, train=False)
-#     return ((a-b)**2).mean(axis=(-3,-2,-1))**(1/2)
 
-results, freqs, stimuli, correlation, gt = prop.evaluate_gen(
+res = prop.evaluate_gen(
                 calculate_diffs=calculate_diffs,
                 img_size=img_size,
                 freqs=freqs,
@@ -85,6 +71,7 @@ results, freqs, stimuli, correlation, gt = prop.evaluate_gen(
                 return_stimuli=True,
                 return_gt=True,
                 )
+results, freqs, stimuli, correlation, gt = res.results, res.freqs, res.stimuli, res.correlations, res.gt
 
 print(f"Correlation: {correlation}")
 

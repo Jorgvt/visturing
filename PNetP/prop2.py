@@ -34,11 +34,12 @@ def calculate_diffs(a, b):
     b = model.apply({"params": params, **state}, b, train=False)
     return ((a-b)**2).mean(axis=(-3,-2,-1))**(1/2)
 
-results, stimuli, correlations, gt = prop.evaluate_gen(calculate_diffs=calculate_diffs,
-                                             img_size=img_size,
-                                             square_size=square_size,
-                                             return_stimuli=True,
-                                             return_gt=True)
+res = prop.evaluate_gen(calculate_diffs=calculate_diffs,
+                        img_size=img_size,
+                        square_size=square_size,
+                        return_stimuli=True,
+                        return_gt=True)
+results, stimuli, correlations, gt = res.results, res.stimuli, res.correlations, res.gt
 
 print(f"correlations: {correlations}")
 

@@ -46,7 +46,7 @@ def calculate_diffs(a, b):
     b = model.apply({"params": params, **state}, b, train=False)
     return ((a-b)**2).mean(axis=(-3,-2,-1))**(1/2)
 
-diffs, freqs, stimuli, correlation = prop.evaluate_gen(calculate_diffs,
+res = prop.evaluate_gen(calculate_diffs,
                   img_size=img_size,
                   freqs=freqs,
                   freqs_mask=freqs_mask,
@@ -59,6 +59,7 @@ diffs, freqs, stimuli, correlation = prop.evaluate_gen(calculate_diffs,
                   theta=theta,
                   delta_theta=delta_theta,
                   return_stimuli=True)
+diffs, freqs, stimuli, correlation = res.results, res.freqs, res.stimuli, res.correlations
 
 for k, v in stimuli.items():
     print(f"{k}: {v.min()}, {v.max()}")

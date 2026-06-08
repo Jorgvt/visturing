@@ -45,7 +45,7 @@ def calculate_diffs(a, b):
     b = model.apply({"params": params, **state}, b, train=False)
     return ((a-b)**2).mean(axis=(-3,-2,-1))**(1/2)
 
-results, freqs, stimuli, correlation = prop.evaluate_gen(
+res = prop.evaluate_gen(
                 calculate_diffs=calculate_diffs,
                 img_size=img_size,
                 freqs=freqs,
@@ -58,6 +58,7 @@ results, freqs, stimuli, correlation = prop.evaluate_gen(
                 delta_theta=delta_theta,
                 return_stimuli=True,
                 )
+results, freqs, stimuli, correlation = res.results, res.freqs, res.stimuli, res.correlations
 
 print(f"Correlation: {correlation}")
 
