@@ -233,11 +233,11 @@ def evaluate_gen(calculate_diffs,
 
     weights_tiled = {}
     for name in results.keys():
-        # Transpose weights[name] to shape (len(freqs), len(Cs))
-        w_transposed = weights[name].T
+        w = weights[name]
+        w_2d = w[:, None] if w.ndim == 1 else w.T
         # results[name] has shape (num_f_mask, num_c_mask, num_freqs, num_cs)
         # Broadcast to match results[name].shape
-        weights_tiled[name] = np.broadcast_to(w_transposed[None, None, :, :], results[name].shape)
+        weights_tiled[name] = np.broadcast_to(w_2d[None, None, :, :], results[name].shape)
 
     ## Correlations have to be calculated all together
     correlations = {"non-weighted": {}, "weighted": {}}
