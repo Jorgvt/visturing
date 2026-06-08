@@ -11,7 +11,8 @@ from scipy.stats import pearsonr
 
 from visturing.ranking import prepare_data, calculate_spearman
 from perceptualtests.color_matrices import Mxyz2ng, gamma
-from .utils import EvaluationResult
+from .utils import EvaluationResult, run_batched
+from .config import default_prop2_config as default_config
 
 
 def load_ground_truth(data_path: str = "ground_truth_decalogo", # Path to the root containing all the ground truth files
@@ -468,8 +469,9 @@ def evaluate_gen(calculate_diffs,
                  square_size: Sequence[int],
                  return_stimuli: bool = False,
                  return_gt: bool = False,
+                 batch_size: int | None = None,
+                 verbose: bool = False,
                  ):
-
 
     ## Generate data
     (data_a, data_rg, data_yb), (bg_a, bg_rg, bg_yb) = generate_data(img_size, square_size)
@@ -479,30 +481,33 @@ def evaluate_gen(calculate_diffs,
 
     results = {}
     for (name, stimuli_), (_, plain) in zip(stimuli.items(), plains.items()):
-        diffs = np.empty(shape=stimuli_.shape[:2])
-        for i, stims in enumerate(stimuli_):
-            # print(f"Plain: {plain.shape}")
-            # fig, axes = plt.subplots(1,5)
-            # for p, ax in zip(plain, axes.ravel()):
-            #     ax.imshow(p)
-            # plt.show()
-            # fig, axes = plt.subplots(1, len(stims))
-            # for ax, s in zip(axes.ravel(), stims):
-            #     ax.imshow(s)
-            #     ax.axis("off")
-            # plt.show()
-            # plt.imshow(plain[i])
-            # plt.show()
-            if name != "achrom":
-                diff = calculate_diffs(stims, plain[i:i+1])
-                mask = np.ones_like(diff)
-                mask[:idxs_chrom[i]] *= -1
-                diff = mask*diff
-            else:
-                diff = calculate_diffs(stims, stims[0:1])
-            diffs[i] = diff
+        num_bgs, num_colors, h, w, c = stimuli_.shape
+        stimuli_flat = stimuli_.reshape(-1, h, w, c)
 
-        results[name] = diffs
+        if name != "achrom":
+            # Repeat plain bg for each color
+            plain_flat = np.repeat(plain[:, None], num_colors, axis=1).reshape(-1, h, w, c)
+        else:
+            # Use the first color as reference for each bg
+            plain_flat = np.repeat(stimuli_[:, 0:1], num_colors, axis=1).reshape(-1, h, w, c)
+
+        # Call calculate_diffs in batch
+        diffs_flat = run_batched(
+            calculate_diffs, 
+            stimuli_flat, 
+            plain_flat, 
+            batch_size=batch_size,
+            show_progress=verbose,
+            desc=f"prop2 ({name})"
+        )
+        diff = diffs_flat.reshape(num_bgs, num_colors)
+
+        # Apply chrom masks
+        if name != "achrom":
+            for idx_bg in range(num_bgs):
+                diff[idx_bg, :idxs_chrom[idx_bg]] *= -1
+
+        results[name] = diff
 
     ## Generate ground truth
     (achrom, bgs, lum, t0, t), (colors_t, colors_d, bg_t, bg_d, delta_t, delta_d, x) = get_ground_truth()
@@ -513,7 +518,9 @@ def evaluate_gen(calculate_diffs,
     preds = np.concatenate([a.ravel() for a in results.values()])
     gts = np.concatenate([a.ravel() for a in gt.values()])
     correlations["pearson"] = pearsonr(preds, gts)[0]
-
+    correlations["global"] = pearsonr(preds, gts)
+    for name in results.keys():
+        correlations[name] = pearsonr(results[name].ravel(), gt[name].ravel())
 
     return EvaluationResult(
         results=results,

@@ -16,7 +16,8 @@ from scipy.stats import pearsonr
 from visturing.ranking import calculate_spearman
 from visturing.properties.noise import generate_noise, generate_noise_iters, generate_plain
 from visturing.properties.formula import incremental_threshold_spatio_temp
-from .utils import EvaluationResult
+from .utils import EvaluationResult, run_batched
+from .config import default_prop10_config as default_config
 
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
@@ -173,6 +174,8 @@ def evaluate_gen(calculate_diffs,
                  n_iters: int = 1,
                  return_stimuli: bool = False,
                  return_gt: bool = False,
+                 batch_size: int | None = None,
+                 verbose: bool = False,
                  ):
 
     results = {}
@@ -200,29 +203,25 @@ def evaluate_gen(calculate_diffs,
         if return_stimuli:
             stimuli[name] = stimuli_
 
-        # diffs = np.empty(shape=stimuli_.shape[:5])
-        # for i, stims in enumerate(stimuli_):
-        #     for j, (s, plain) in enumerate(zip(stims, plain_)):
-        #         # print(f"Stims: {stims.shape}")
-        #         # print(f"Plain: {plain.shape}")
-        #         diff = calculate_diffs(s, plain[None,:,:,None])
-        #         # print(f"Diff: {diff.shape}")
-        #         diffs[i,j] = diff
-        #         # fig, axes  = plt.subplots(2,10)
-        #         # for k, ax in enumerate(axes[0].ravel()):
-        #         #     ax.imshow(s[k])
-        #         #     ax.set_title(f"{diff[k]:.3f}")
-        #         # axes[1,5].imshow(plain)
-        #         # for ax in axes.ravel(): ax.axis("off")
-        #         # plt.show()
+        n_iters_val, num_t_mask, num_c_mask, num_freqs, num_cs, h, w, c_dim = stimuli_.shape
+        stimuli_flat = stimuli_.reshape(-1, h, w, c_dim)
 
-        diffs = np.empty(shape=stimuli_.shape[:5])
-        for i, stims in enumerate(stimuli_):
-            for j, (s, plain) in enumerate(zip(stims, plain_)):
-                for k, (s_, plain__) in enumerate(zip(s, plain)):
-                    diff = calculate_diffs(s_, plain__[:])
-                    diffs[i,j,k] = diff
-        diffs = diffs.mean(axis=0)
+        plain_expanded = plain_[None, :, :, :, None, :, :, :]
+        plain_expanded = np.repeat(plain_expanded, n_iters_val, axis=0)
+        plain_expanded = np.repeat(plain_expanded, num_cs, axis=4)
+        plain_flat = plain_expanded.reshape(-1, h, w, c_dim)
+
+        diffs_flat = run_batched(
+            calculate_diffs, 
+            stimuli_flat, 
+            plain_flat, 
+            batch_size=batch_size,
+            show_progress=verbose,
+            desc=f"prop10 ({name})"
+        )
+        diff = diffs_flat.reshape(n_iters_val, num_t_mask, num_c_mask, num_freqs, num_cs)
+
+        diffs = diff.mean(axis=0)
         results[name] = diffs
 
     ## Get ground truth to calculate correlation

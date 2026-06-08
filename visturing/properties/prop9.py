@@ -16,7 +16,8 @@ from visturing.ranking import calculate_spearman
 from visturing.properties.noise import generate_noise, generate_noise_iters, generate_plain
 from visturing.properties.formula import incremental_threshold_spatio_temp
 from visturing.properties import prop8
-from .utils import EvaluationResult
+from .utils import EvaluationResult, run_batched
+from .config import default_prop9_config as default_config
 
 
 def load_ground_truth(root_path: str = "../../ground_truth_decalogo", # Path to the root containing all the ground truth files
@@ -163,6 +164,8 @@ def evaluate_gen(calculate_diffs,
                  n_iters: int = 1,
                  return_stimuli: bool = False,
                  return_gt: bool = False,
+                 batch_size: int | None = None,
+                 verbose: bool = False,
                  ):
 
     results = {}
@@ -189,19 +192,26 @@ def evaluate_gen(calculate_diffs,
         if return_stimuli:
             stimuli[name] = stimuli_
 
-        # diffs = np.empty(shape=stimuli_.shape[:5])
-        # for i, stims in enumerate(stimuli_):
-        #     for j, s in enumerate(stims):
-        #         diff = calculate_diffs(s, plain[j,None,None])
-        #         diffs[i,j] = diff
+        n_iters_val, num_f_mask, num_c_mask, num_freqs, num_cs, h, w, c_dim = stimuli_.shape
+        stimuli_flat = stimuli_.reshape(-1, h, w, c_dim)
 
-        diffs = np.empty(shape=stimuli_.shape[:5])
-        for i, stims in enumerate(stimuli_):
-            for j, (s, plain) in enumerate(zip(stims, plain_)):
-                for k, (s_, plain__) in enumerate(zip(s, plain)):
-                    diff = calculate_diffs(s_, plain__[None,:])
-                    diffs[i,j,k] = diff
-        diffs = diffs.mean(axis=0)
+        plain_expanded = plain_[None, :, :, None, None, :, :, :]
+        plain_expanded = np.repeat(plain_expanded, n_iters_val, axis=0)
+        plain_expanded = np.repeat(plain_expanded, num_freqs, axis=3)
+        plain_expanded = np.repeat(plain_expanded, num_cs, axis=4)
+        plain_flat = plain_expanded.reshape(-1, h, w, c_dim)
+
+        diffs_flat = run_batched(
+            calculate_diffs, 
+            stimuli_flat, 
+            plain_flat, 
+            batch_size=batch_size,
+            show_progress=verbose,
+            desc=f"prop9 ({name})"
+        )
+        diff = diffs_flat.reshape(n_iters_val, num_f_mask, num_c_mask, num_freqs, num_cs)
+
+        diffs = diff.mean(axis=0)
         results[name] = diffs
 
     ## Get ground truth to calculate correlation

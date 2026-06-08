@@ -16,6 +16,40 @@ class EvaluationResult:
     gt: Optional[Dict[str, Any]] = None
     freqs: Optional[Any] = None
 
+def run_batched(calculate_diffs, a, b, batch_size: Optional[int] = None, show_progress: bool = False, desc: str = "Evaluating batches"):
+    """Slices the inputs into batches of `batch_size` and runs `calculate_diffs` on each batch.
+    
+    Pure NumPy implementation.
+    """
+    if batch_size is None or batch_size <= 0 or len(a) <= batch_size:
+        if show_progress:
+            from tqdm import tqdm
+            with tqdm(total=1, desc=desc, unit="batch") as pbar:
+                res = calculate_diffs(a, b)
+                pbar.update(1)
+            return res
+        return calculate_diffs(a, b)
+    
+    if show_progress:
+        from tqdm import tqdm
+        pbar = tqdm(total=len(a), desc=desc, unit="stimuli")
+    else:
+        pbar = None
+
+    diffs = []
+    for i in range(0, len(a), batch_size):
+        chunk_a = a[i : i + batch_size]
+        chunk_b = b[i : i + batch_size]
+        diffs.append(calculate_diffs(chunk_a, chunk_b))
+        if pbar:
+            pbar.update(len(chunk_a))
+            
+    if pbar:
+        pbar.close()
+    
+    return np.concatenate([np.asarray(d) for d in diffs])
+
+
 from . import prop1
 from . import prop2
 from . import prop3_4
@@ -152,3 +186,100 @@ def extract_numbers_from_table(table_results):
             for n in a:
                 numbers.append(float(n))
     return numbers
+
+
+def evaluate_all_gen(calculate_diffs,
+                     batch_size: int | None = None,
+                     configs: dict | None = None,
+                     verbose: bool = False,
+                     show_property_progress: bool = False,
+                     ):
+    """Evaluates all available generative properties using their default configurations.
+    
+    Args:
+        calculate_diffs: User-provided function to calculate differences.
+        batch_size: Optional batch size for deep learning model evaluations.
+        configs: Optional dictionary to override default configurations for properties.
+        verbose: If True, displays a global progress bar over properties.
+        show_property_progress: If True, displays progress bars within each property evaluation.
+    """
+    from .config import DEFAULT_CONFIGS
+    
+    active_configs = {}
+    for prop_name, default_cfg in DEFAULT_CONFIGS.items():
+        active_configs[prop_name] = default_cfg.copy()
+        if configs and prop_name in configs:
+            active_configs[prop_name].update(configs[prop_name])
+            
+    properties_to_evaluate = [
+        ("prop2", prop2),
+        ("prop3_4", prop3_4),
+        ("prop5", prop5),
+        ("prop6_7", prop6_7),
+        ("prop8", prop8),
+        ("prop9", prop9),
+        ("prop10", prop10),
+    ]
+    
+    if verbose:
+        from tqdm import tqdm
+        pbar = tqdm(properties_to_evaluate, desc="Evaluating all properties")
+    else:
+        pbar = properties_to_evaluate
+        
+    results = {}
+    for name, prop_mod in pbar:
+        if verbose:
+            pbar.set_postfix_str(f"Running {name}")
+            
+        results[name] = prop_mod.evaluate_gen(
+            calculate_diffs,
+            return_gt=True,
+            batch_size=batch_size,
+            verbose=show_property_progress,
+            **active_configs[name]
+        )
+    
+    return results
+
+
+def build_evaluation_table_gen(data):
+    """Takes as input the output of the `evaluate_all_gen` function and returns a table of Pearson correlations."""
+    def get_corr_val(val):
+        if val is None:
+            return "-"
+        if isinstance(val, (tuple, list, np.ndarray)):
+            val = val[0]
+        return f"{val:.2f}" if not np.isnan(val) else "-"
+
+    rows = []
+
+    for prop_key, prop_name in [
+        ("prop2", "Prop. 2"),
+        ("prop3_4", "Prop. 3 & 4"),
+        ("prop5", "Prop. 5"),
+        ("prop6_7", "Prop. 6 & 7"),
+        ("prop8", "Prop. 8"),
+        ("prop9", "Prop. 9"),
+        ("prop10", "Prop. 10"),
+    ]:
+        prop_data = data.get(prop_key)
+        if prop_data is not None and hasattr(prop_data, "correlations"):
+            corrs = prop_data.correlations
+            rows.append({
+                "Property": prop_name,
+                "Global (r)": get_corr_val(corrs.get("global")),
+                "Achromatic (r)": get_corr_val(corrs.get("achrom")),
+                "Red-Green (r)": get_corr_val(corrs.get("red-green")),
+                "Yellow-Blue (r)": get_corr_val(corrs.get("yellow-blue")),
+            })
+        else:
+            rows.append({
+                "Property": prop_name,
+                "Global (r)": "-",
+                "Achromatic (r)": "-",
+                "Red-Green (r)": "-",
+                "Yellow-Blue (r)": "-",
+            })
+
+    return pd.DataFrame(rows)

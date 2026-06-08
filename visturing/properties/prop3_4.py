@@ -12,7 +12,8 @@ from scipy.stats import pearsonr
 from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth
 from visturing.properties.noise import generate_noise_iters, generate_plain
 from visturing.properties.formula import incremental_threshold_spatio_temp
-from .utils import EvaluationResult
+from .utils import EvaluationResult, run_batched
+from .config import default_prop3_4_config as default_config
 
 
 def load_data(root_path: str):
@@ -150,6 +151,8 @@ def evaluate_gen(calculate_diffs,
                  n_iters: int = 1,
                  return_stimuli: bool = False,
                  return_gt: bool = False,
+                 batch_size: int | None = None,
+                 verbose: bool = False,
                  ):
 
     results = {}
@@ -161,14 +164,22 @@ def evaluate_gen(calculate_diffs,
         if return_stimuli:
             stimuli[name] = stimuli_
 
-        diffs = np.empty(shape=stimuli_.shape[:2])
-        for i, stims in enumerate(stimuli_):
-            diff = calculate_diffs(stims, plain)
-            diffs[i] = diff
+        n_iters_val, num_freqs, h, w, c_dim = stimuli_.shape
+        stimuli_flat = stimuli_.reshape(-1, h, w, c_dim)
+        plain_flat = np.repeat(plain, n_iters_val * num_freqs, axis=0)
 
-        diffs = diffs.mean(axis=0)
+        diffs_flat = run_batched(
+            calculate_diffs, 
+            stimuli_flat, 
+            plain_flat, 
+            batch_size=batch_size,
+            show_progress=verbose,
+            desc=f"prop3_4 ({name})"
+        )
+        diff = diffs_flat.reshape(n_iters_val, num_freqs)
+
+        diffs = diff.mean(axis=0)
         results[name] = diffs
-
 
     gt = {}
     for name, res in results.items():
@@ -184,7 +195,9 @@ def evaluate_gen(calculate_diffs,
     preds = np.stack([a for a in results.values()]).ravel()
     gts = np.stack([a for a in gt.values()]).ravel()
     correlations["pearson"] = pearsonr(preds, gts)[0]
-
+    correlations["global"] = pearsonr(preds, gts)
+    for name in results.keys():
+        correlations[name] = pearsonr(results[name].ravel(), gt[name].ravel())
 
     return EvaluationResult(
         results=results,
