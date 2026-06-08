@@ -13,7 +13,8 @@ from visturing.ranking import prepare_data, calculate_correlations_with_ground_t
 from visturing.properties.noise import generate_noise_iters, generate_plain, generate_noise
 from visturing.properties.formula import incremental_threshold_spatio_temp
 from visturing.properties import prop3_4
-from .utils import EvaluationResult, run_batched
+from visturing.properties.prob_weight import get_weights
+from .utils import EvaluationResult, run_batched, weighted_pearson_correlation
 from .config import default_prop5_config as default_config
 
 
@@ -229,17 +230,29 @@ def evaluate_gen(calculate_diffs,
         )
         gts[name] = gt
 
-    res_flat = np.array([a.ravel() for a in csfs.values()]).ravel()
-    gts_flat = np.array([a.ravel() for a in gts.values()]).ravel()
-    correlation = {}
-    for (name, res), (name, gt_) in zip(csfs.items(), gts.items()):
-        correlation[name] = pearsonr(res.ravel(), gt_.ravel())
+    ## Obtain the weight following the probability of the images
+    weights = get_weights(freqs=freqs, Cs=[C], Bpp=3)
 
-    correlation["global"] = pearsonr(res_flat, gts_flat)
+    weights_tiled = {}
+    for name in csfs.keys():
+        weights_tiled[name] = np.broadcast_to(weights[name], csfs[name].shape)
+
+    ## Correlations have to be calculated all together
+    correlations = {"non-weighted": {}, "weighted": {}}
+    preds = np.stack([a for a in csfs.values()]).ravel()
+    gts_flat = np.stack([a for a in gts.values()]).ravel()
+    weights_global = np.stack([a for a in weights_tiled.values()]).ravel()
+
+    correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, np.ones_like(weights_global))
+    correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, weights_global)
+
+    for name in csfs.keys():
+        correlations["non-weighted"][name] = weighted_pearson_correlation(csfs[name].ravel(), gts[name].ravel(), np.ones_like(weights_tiled[name]).ravel())
+        correlations["weighted"][name] = weighted_pearson_correlation(csfs[name].ravel(), gts[name].ravel(), weights_tiled[name].ravel())
 
     return EvaluationResult(
         results=results,
-        correlations=correlation,
+        correlations=correlations,
         stimuli=stimuli if return_stimuli else None,
         gt=gts if return_gt else None,
         freqs=freqs,

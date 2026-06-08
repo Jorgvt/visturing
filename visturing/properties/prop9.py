@@ -16,7 +16,8 @@ from visturing.ranking import calculate_spearman
 from visturing.properties.noise import generate_noise, generate_noise_iters, generate_plain
 from visturing.properties.formula import incremental_threshold_spatio_temp
 from visturing.properties import prop8
-from .utils import EvaluationResult, run_batched
+from visturing.properties.prob_weight import get_weights
+from .utils import EvaluationResult, run_batched, weighted_pearson_correlation
 from .config import default_prop9_config as default_config
 
 
@@ -227,18 +228,33 @@ def evaluate_gen(calculate_diffs,
         ## Skip 0s as of now
         gts[name] = gt
  
-    correlation = {}
-    for (name, res), (name, gt_) in zip(results.items(), gts.items()):
-        correlation[name] = pearsonr(res.ravel(), gt_.ravel())
+    ## Obtain the weight following the probability of the images
+    weights = get_weights(freqs=freqs, Cs=Cs, Bpp=3)
 
-    res_flat = np.array([a.ravel() for a in results.values()]).ravel()
-    gts_flat = np.array([a.ravel() for a in gts.values()]).ravel()
+    weights_tiled = {}
+    for name in results.keys():
+        # Transpose weights[name] to shape (len(freqs), len(Cs))
+        w_transposed = weights[name].T
+        # results[name] has shape (num_f_mask, num_c_mask, num_freqs, num_cs)
+        # Broadcast to match results[name].shape
+        weights_tiled[name] = np.broadcast_to(w_transposed[None, None, :, :], results[name].shape)
 
-    correlation["global"] = pearsonr(res_flat, gts_flat)
+    ## Correlations have to be calculated all together
+    correlations = {"non-weighted": {}, "weighted": {}}
+    preds = np.stack([a for a in results.values()]).ravel()
+    gts_flat = np.stack([a for a in gts.values()]).ravel()
+    weights_global = np.stack([a for a in weights_tiled.values()]).ravel()
+
+    correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, np.ones_like(weights_global))
+    correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, weights_global)
+
+    for name in results.keys():
+        correlations["non-weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gts[name].ravel(), np.ones_like(weights_tiled[name]).ravel())
+        correlations["weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gts[name].ravel(), weights_tiled[name].ravel())
 
     return EvaluationResult(
         results=results,
-        correlations=correlation,
+        correlations=correlations,
         stimuli=stimuli if return_stimuli else None,
         gt=gts if return_gt else None,
         freqs=freqs,

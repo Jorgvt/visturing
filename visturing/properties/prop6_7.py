@@ -15,7 +15,8 @@ from scipy.stats import pearsonr
 from visturing.ranking import prepare_data, calculate_correlations_with_ground_truth
 from visturing.properties.noise import generate_noise_iters, generate_plain, generate_noise
 from visturing.properties.formula import incremental_threshold_spatio_temp
-from .utils import EvaluationResult, run_batched
+from visturing.properties.prob_weight import get_weights
+from .utils import EvaluationResult, run_batched, weighted_pearson_correlation
 from .config import default_prop6_7_config as default_config
 
 
@@ -246,18 +247,25 @@ def evaluate_gen(calculate_diffs,
         ## Skip 0s as of now
         gts[name] = Z[1:]
  
-    res_flat = np.array([a.ravel() for a in results.values()]).ravel()
-    gts_flat = np.array([a.ravel() for a in gts.values()]).ravel()
+    ## Obtain the weight following the probability of the images
+    weights = get_weights(freqs=freqs, Cs=Cs, Bpp=3)
 
-    correlation = {}
-    for (name, res), (name, gt_) in zip(results.items(), gts.items()):
-        correlation[name] = pearsonr(res.ravel(), gt_.ravel())
+    ## Correlations have to be calculated all together
+    correlations = {"non-weighted": {}, "weighted": {}}
+    preds = np.stack([a for a in results.values()]).ravel()
+    gts_flat = np.stack([a for a in gts.values()]).ravel()
+    weights_global = np.stack([a for a in weights.values()]).ravel()
 
-    correlation["global"] = pearsonr(res_flat, gts_flat)
+    correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, np.ones_like(weights_global))
+    correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, weights_global)
+
+    for name in results.keys():
+        correlations["non-weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gts[name].ravel(), np.ones_like(weights[name]).ravel())
+        correlations["weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gts[name].ravel(), weights[name].ravel())
 
     return EvaluationResult(
         results=results,
-        correlations=correlation,
+        correlations=correlations,
         stimuli=stimuli if return_stimuli else None,
         gt=gts if return_gt else None,
         freqs=freqs,

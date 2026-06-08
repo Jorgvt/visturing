@@ -50,14 +50,36 @@ def run_batched(calculate_diffs, a, b, batch_size: Optional[int] = None, show_pr
     return np.concatenate([np.asarray(d) for d in diffs])
 
 
-from . import prop1
-from . import prop2
-from . import prop3_4
-from . import prop5
-from . import prop6_7
-from . import prop8
-from . import prop9
-from . import prop10
+def weighted_pearson_correlation(x, y, w):
+    """
+    Calculate the weighted Pearson correlation coefficient.
+    
+    Parameters:
+    x (array-like): Data for the first variable.
+    y (array-like): Data for the second variable.
+    w (array-like): Weights for each data point.
+    
+    Returns:
+    float: The weighted Pearson correlation coefficient.
+    """
+    x = np.asarray(x)
+    y = np.asarray(y)
+    w = np.asarray(w)
+    
+    # Calculate the weighted covariance matrix
+    # aweights specifies observation vector weights
+    cov_matrix = np.cov(x, y, aweights=w)
+    
+    # Extract covariance and variances from the matrix
+    cov_xy = cov_matrix[0, 1]
+    var_x = cov_matrix[0, 0]
+    var_y = cov_matrix[1, 1]
+    
+    # Calculate the weighted correlation coefficient
+    correlation = cov_xy / np.sqrt(var_x * var_y)
+    
+    return correlation
+
 
 def download_ground_truth(data_path, # Path to download the data
                   ):
@@ -72,6 +94,14 @@ def evaluate_all(calculate_diffs,
                  data_path, # Path to the root directory
                  gt_path, # Path to the ground truth
                  ):
+    from . import prop1
+    from . import prop2
+    from . import prop3_4
+    from . import prop5
+    from . import prop6_7
+    from . import prop8
+    from . import prop9
+    from . import prop10
 
     if not os.path.exists(os.path.join(gt_path, "ground_truth")):
         gt_path = download_ground_truth(gt_path)
@@ -204,6 +234,13 @@ def evaluate_all_gen(calculate_diffs,
         show_property_progress: If True, displays progress bars within each property evaluation.
     """
     from .config import DEFAULT_CONFIGS
+    from . import prop2
+    from . import prop3_4
+    from . import prop5
+    from . import prop6_7
+    from . import prop8
+    from . import prop9
+    from . import prop10
     
     active_configs = {}
     for prop_name, default_cfg in DEFAULT_CONFIGS.items():
@@ -266,13 +303,24 @@ def build_evaluation_table_gen(data):
         prop_data = data.get(prop_key)
         if prop_data is not None and hasattr(prop_data, "correlations"):
             corrs = prop_data.correlations
-            rows.append({
-                "Property": prop_name,
-                "Global (r)": get_corr_val(corrs.get("global")),
-                "Achromatic (r)": get_corr_val(corrs.get("achrom")),
-                "Red-Green (r)": get_corr_val(corrs.get("red-green")),
-                "Yellow-Blue (r)": get_corr_val(corrs.get("yellow-blue")),
-            })
+            if "non-weighted" in corrs or "weighted" in corrs:
+                for w_key, w_name in [("non-weighted", "Non-weighted"), ("weighted", "Weighted")]:
+                    sub_corrs = corrs.get(w_key, {})
+                    rows.append({
+                        "Property": f"{prop_name} ({w_name})",
+                        "Global (r)": get_corr_val(sub_corrs.get("global")),
+                        "Achromatic (r)": get_corr_val(sub_corrs.get("achrom")),
+                        "Red-Green (r)": get_corr_val(sub_corrs.get("red-green")),
+                        "Yellow-Blue (r)": get_corr_val(sub_corrs.get("yellow-blue")),
+                    })
+            else:
+                rows.append({
+                    "Property": prop_name,
+                    "Global (r)": get_corr_val(corrs.get("global")),
+                    "Achromatic (r)": get_corr_val(corrs.get("achrom")),
+                    "Red-Green (r)": get_corr_val(corrs.get("red-green")),
+                    "Yellow-Blue (r)": get_corr_val(corrs.get("yellow-blue")),
+                })
         else:
             rows.append({
                 "Property": prop_name,
@@ -283,3 +331,4 @@ def build_evaluation_table_gen(data):
             })
 
     return pd.DataFrame(rows)
+
