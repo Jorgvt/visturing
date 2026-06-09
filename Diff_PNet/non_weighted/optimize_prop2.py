@@ -9,6 +9,12 @@ from visturing.properties import prop2
 from visturing.properties.config import default_prop2_config
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="JAX Optimization Experiment")
+    parser.add_argument("--batch_size", type=int, default=None, help="Batch size for evaluation")
+    parser.add_argument("--iterations", type=int, default=10, help="Number of training iterations")
+    args = parser.parse_args()
+
     print("Starting JAX PerceptNet optimization experiment on Prop. 2 (Color Discrimination) using NON-WEIGHTED correlation...")
 
     # Load pretrained PerceptNet model
@@ -41,6 +47,7 @@ def main():
         res = prop2.evaluate_gen(
             calculate_diffs,
             xp=jnp,
+            batch_size=args.batch_size,
             verbose=False,
             **default_prop2_config
         )
@@ -57,8 +64,8 @@ def main():
     loss, init_corr = loss_fn(params)
     print(f"Initial global non-weighted correlation: {init_corr:.4f}")
 
-    print("\nRunning optimization loop (10 steps)...")
-    for i in range(10):
+    print(f"\nRunning optimization loop ({args.iterations} steps)...")
+    for i in range(args.iterations):
         (loss_val, corr_val), grads = grad_fn(params)
         
         # Update params
@@ -71,6 +78,14 @@ def main():
     final_loss, final_corr = loss_fn(params)
     print(f"Final global non-weighted correlation: {final_corr:.4f}")
     print(f"Total improvement: {final_corr - init_corr:.4f}")
+
+    print("\nSaving trained model variables...")
+    import pickle
+    save_path = os.path.join(os.path.dirname(__file__), "model_pnet_prop2.pkl")
+    variables_to_save = {"params": params, "state": state}
+    with open(save_path, "wb") as f_save:
+        pickle.dump(variables_to_save, f_save)
+    print(f"Saved variables to {save_path}")
 
 if __name__ == "__main__":
     main()

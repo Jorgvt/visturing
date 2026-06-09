@@ -18,6 +18,12 @@ def jax_pearson_correlation(x, y):
     return cov_xy / jnp.sqrt(var_x * var_y + 1e-8)
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="JAX Optimization Experiment")
+    parser.add_argument("--batch_size", type=int, default=None, help="Batch size for evaluation")
+    parser.add_argument("--iterations", type=int, default=10, help="Number of training iterations")
+    args = parser.parse_args()
+
     print("Starting JAX PerceptNet optimization experiment on Prop. 1 (Spectral Sensitivity)...")
     print("Note: Prop. 1 only has standard (non-weighted) human spectral sensitivities.")
 
@@ -52,15 +58,22 @@ def main():
 
     # Define loss function
     def loss_fn(params_val):
-        a_j = jnp.asarray(imgs)
-        b_j = jnp.asarray(ref_img[None, ...])
+        from visturing.properties.utils import run_batched
         
-        # Use train=True and mutable to recalculate filters so gradients flow to all parameters
-        feat_a, _ = model.apply({"params": params_val, **state}, a_j, train=True, mutable=list(state.keys()))
-        feat_b, _ = model.apply({"params": params_val, **state}, b_j, train=True, mutable=list(state.keys()))
-        
-        # Differentiable RMSE over height, width, and channel dimensions
-        diffs = jnp.sqrt(jnp.mean((feat_a - feat_b) ** 2, axis=(-3, -2, -1)) + 1e-8)
+        def calculate_diffs(a, b):
+            a_j = jnp.asarray(a)
+            b_j = jnp.asarray(b)
+            feat_a, _ = model.apply({"params": params_val, **state}, a_j, train=True, mutable=list(state.keys()))
+            feat_b, _ = model.apply({"params": params_val, **state}, b_j, train=True, mutable=list(state.keys()))
+            return jnp.sqrt(jnp.mean((feat_a - feat_b) ** 2, axis=(-3, -2, -1)) + 1e-8)
+            
+        ref_img_expanded = np.repeat(ref_img[None, ...], len(imgs), axis=0)
+        diffs = run_batched(
+            calculate_diffs,
+            imgs,
+            ref_img_expanded,
+            batch_size=args.batch_size
+        )
         
         # Pearson correlation
         corr = jax_pearson_correlation(diffs, a_interp_j)
@@ -74,8 +87,8 @@ def main():
     loss, init_corr = loss_fn(params)
     print(f"Initial Pearson correlation: {init_corr:.4f}")
 
-    print("\nRunning optimization loop (10 steps)...")
-    for i in range(10):
+    print(f"\nRunning optimization loop ({args.iterations} steps)...")
+    for i in range(args.iterations):
         (loss_val, corr_val), grads = grad_fn(params)
         
         # Update params
@@ -88,6 +101,14 @@ def main():
     final_loss, final_corr = loss_fn(params)
     print(f"Final Pearson correlation: {final_corr:.4f}")
     print(f"Total improvement: {final_corr - init_corr:.4f}")
+
+    print("\nSaving trained model variables...")
+    import pickle
+    save_path = os.path.join(os.path.dirname(__file__), "model_pnet_prop1.pkl")
+    variables_to_save = {"params": params, "state": state}
+    with open(save_path, "wb") as f_save:
+        pickle.dump(variables_to_save, f_save)
+    print(f"Saved variables to {save_path}")
 
 if __name__ == "__main__":
     main()
