@@ -223,6 +223,8 @@ def evaluate_all_gen(calculate_diffs,
                      configs: dict | None = None,
                      verbose: bool = False,
                      show_property_progress: bool = False,
+                     data_path: str = "./", # path to the root directory
+                     gt_path: str = "./", # path to the ground truth
                      ):
     """Evaluates all available generative properties using their default configurations.
     
@@ -234,6 +236,7 @@ def evaluate_all_gen(calculate_diffs,
         show_property_progress: If True, displays progress bars within each property evaluation.
     """
     from .config import DEFAULT_CONFIGS
+    from . import prop1
     from . import prop2
     from . import prop3_4
     from . import prop5
@@ -241,7 +244,12 @@ def evaluate_all_gen(calculate_diffs,
     from . import prop8
     from . import prop9
     from . import prop10
-    
+
+    if not os.path.exists(os.path.join(gt_path, "ground_truth")):
+        gt_path = download_ground_truth(gt_path)
+    else:
+        gt_path = os.path.join(gt_path, "ground_truth")
+
     active_configs = {}
     for prop_name, default_cfg in DEFAULT_CONFIGS.items():
         active_configs[prop_name] = default_cfg.copy()
@@ -249,6 +257,7 @@ def evaluate_all_gen(calculate_diffs,
             active_configs[prop_name].update(configs[prop_name])
             
     properties_to_evaluate = [
+        ("prop1", prop1),
         ("prop2", prop2),
         ("prop3_4", prop3_4),
         ("prop5", prop5),
@@ -269,6 +278,17 @@ def evaluate_all_gen(calculate_diffs,
         if verbose:
             pbar.set_postfix_str(f"Running {name}")
             
+        if name == "prop1":
+            res_prop1 = prop_mod.evaluate(calculate_diffs, os.path.join(data_path, "Experiment_1"), gt_path)
+            corr = res_prop1["correlations"]["pearson"]
+            results[name] = EvaluationResult(
+                results=res_prop1,
+                correlations={"global": corr, "achrom": corr},
+                gt=None,
+                freqs=res_prop1.get("lambdas")
+            )
+            continue
+
         results[name] = prop_mod.evaluate_gen(
             calculate_diffs,
             return_gt=True,
@@ -292,6 +312,7 @@ def build_evaluation_table_gen(data):
     rows = []
 
     for prop_key, prop_name in [
+        ("prop1", "Prop. 1"),
         ("prop2", "Prop. 2"),
         ("prop3_4", "Prop. 3 & 4"),
         ("prop5", "Prop. 5"),
@@ -331,4 +352,3 @@ def build_evaluation_table_gen(data):
             })
 
     return pd.DataFrame(rows)
-
