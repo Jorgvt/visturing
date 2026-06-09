@@ -11,7 +11,7 @@ from scipy.stats import pearsonr
 
 from visturing.ranking import prepare_data, calculate_spearman
 from perceptualtests.color_matrices import Mxyz2ng, gamma
-from .utils import EvaluationResult, run_batched, weighted_pearson_correlation
+from .utils import EvaluationResult, run_batched, weighted_pearson_correlation, ArrayApi
 from .config import default_prop2_config as default_config
 from visturing.properties.prob_weight_chroma import get_weights
 
@@ -472,6 +472,7 @@ def evaluate_gen(calculate_diffs,
                  return_gt: bool = False,
                  batch_size: int | None = None,
                  verbose: bool = False,
+                 xp=np,
                  ):
 
     ## Generate data
@@ -479,6 +480,8 @@ def evaluate_gen(calculate_diffs,
     stimuli = {"achrom": data_a, "red-green": data_rg, "yellow-blue": data_yb}
     plains = {"achrom": bg_a, "red-green": bg_rg, "yellow-blue": bg_yb}
     idxs_chrom = [2, 5, 7, 9, 12]
+
+    xp_api = ArrayApi(xp)
 
     results = {}
     for (name, stimuli_), (_, plain) in zip(stimuli.items(), plains.items()):
@@ -505,8 +508,10 @@ def evaluate_gen(calculate_diffs,
 
         # Apply chrom masks
         if name != "achrom":
+            sign_mask = np.ones((num_bgs, num_colors), dtype=np.float32)
             for idx_bg in range(num_bgs):
-                diff[idx_bg, :idxs_chrom[idx_bg]] *= -1
+                sign_mask[idx_bg, :idxs_chrom[idx_bg]] = -1.0
+            diff = diff * xp_api.asarray(sign_mask)
 
         results[name] = diff
 
@@ -524,16 +529,19 @@ def evaluate_gen(calculate_diffs,
 
     ## Correlations have to be calculated all together
     correlations = {"non-weighted": {}, "weighted": {}}
-    preds = np.concatenate([results[k].ravel() for k in results.keys()])
-    gts_flat = np.concatenate([gt[k].ravel() for k in results.keys()])
-    weights_global = np.concatenate([weights[k].ravel() for k in results.keys()])
+    preds = xp_api.concatenate([xp_api.ravel(results[k]) for k in results.keys()])
+    gts_flat = xp_api.asarray(np.concatenate([gt[k].ravel() for k in results.keys()]))
+    weights_global = xp_api.asarray(np.concatenate([weights[k].ravel() for k in results.keys()]))
 
-    correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, np.ones_like(weights_global))
-    correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, weights_global)
+    correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, xp_api.ones_like(weights_global), xp=xp_api)
+    correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, weights_global, xp=xp_api)
 
     for name in results.keys():
-        correlations["non-weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gt[name].ravel(), np.ones_like(weights[name]).ravel())
-        correlations["weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gt[name].ravel(), weights[name].ravel())
+        r_name = results[name]
+        gt_name = xp_api.asarray(gt[name])
+        w_name = xp_api.asarray(weights[name])
+        correlations["non-weighted"][name] = weighted_pearson_correlation(xp_api.ravel(r_name), xp_api.ravel(gt_name), xp_api.ones_like(xp_api.ravel(w_name)), xp=xp_api)
+        correlations["weighted"][name] = weighted_pearson_correlation(xp_api.ravel(r_name), xp_api.ravel(gt_name), xp_api.ravel(w_name), xp=xp_api)
 
     return EvaluationResult(
         results=results,

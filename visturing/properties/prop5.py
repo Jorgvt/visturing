@@ -14,7 +14,7 @@ from visturing.properties.noise import generate_noise_iters, generate_plain, gen
 from visturing.properties.formula import incremental_threshold_spatio_temp
 from visturing.properties import prop3_4
 from visturing.properties.prob_weight import get_weights
-from .utils import EvaluationResult, run_batched, weighted_pearson_correlation
+from .utils import EvaluationResult, run_batched, weighted_pearson_correlation, ArrayApi
 from .config import default_prop5_config as default_config
 
 
@@ -160,7 +160,10 @@ def evaluate_gen(calculate_diffs,
                  return_gt: bool = False,
                  batch_size: int | None = None,
                  verbose: bool = False,
+                 xp=np,
                  ):
+
+    xp_api = ArrayApi(xp)
 
     results = {}
     if return_stimuli:
@@ -180,7 +183,8 @@ def evaluate_gen(calculate_diffs,
                     return_stimuli=False,
                     return_gt=False,
                     batch_size=batch_size,
-                    verbose=verbose)
+                    verbose=verbose,
+                    xp=xp)
     diffs_csf = res_csf.results
 
     for name, c in zip(["achrom", "red-green", "yellow-blue"], [1, 2, 3]):
@@ -206,16 +210,16 @@ def evaluate_gen(calculate_diffs,
         )
         diff = diffs_flat.reshape(n_iters_val, num_mask, num_freqs)
 
-        diffs = diff.mean(axis=0)
+        diffs = xp_api.mean(diff, axis=0)
         results[name] = diffs
 
     ## Calculate the masked CSF
     csfs = {}
-    for (name, csf), (name2, res)  in zip(diffs_csf.items(), results.items()):
-        masked = np.empty_like(res)
-        for i, csf_masked in enumerate(res):
-            masked[i] = csf/csf_masked
-        csfs[name] = masked
+    for name in results.keys():
+        csf = diffs_csf[name] # shape (num_freqs,)
+        res = results[name]   # shape (num_mask, num_freqs)
+        # Add dimension to csf for broadcasting: (1, num_freqs) / (num_mask, num_freqs)
+        csfs[name] = csf[None, :] / res
     results = csfs
 
     ## Get ground truth
@@ -235,20 +239,23 @@ def evaluate_gen(calculate_diffs,
 
     weights_tiled = {}
     for name in csfs.keys():
-        weights_tiled[name] = np.broadcast_to(weights[name], csfs[name].shape)
+        weights_tiled[name] = xp_api.broadcast_to(xp_api.asarray(weights[name]), csfs[name].shape)
 
     ## Correlations have to be calculated all together
     correlations = {"non-weighted": {}, "weighted": {}}
-    preds = np.stack([a for a in csfs.values()]).ravel()
-    gts_flat = np.stack([a for a in gts.values()]).ravel()
-    weights_global = np.stack([a for a in weights_tiled.values()]).ravel()
+    preds = xp_api.ravel(xp_api.stack([csfs[k] for k in csfs.keys()]))
+    gts_flat = xp_api.asarray(np.stack([gts[k] for k in csfs.keys()]).ravel())
+    weights_global = xp_api.asarray(np.stack([weights_tiled[k] for k in csfs.keys()]).ravel())
 
-    correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, np.ones_like(weights_global))
-    correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, weights_global)
+    correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, xp_api.ones_like(weights_global), xp=xp_api)
+    correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, weights_global, xp=xp_api)
 
     for name in csfs.keys():
-        correlations["non-weighted"][name] = weighted_pearson_correlation(csfs[name].ravel(), gts[name].ravel(), np.ones_like(weights_tiled[name]).ravel())
-        correlations["weighted"][name] = weighted_pearson_correlation(csfs[name].ravel(), gts[name].ravel(), weights_tiled[name].ravel())
+        r_name = csfs[name]
+        gt_name = xp_api.asarray(gts[name])
+        w_name = xp_api.asarray(weights_tiled[name])
+        correlations["non-weighted"][name] = weighted_pearson_correlation(xp_api.ravel(r_name), xp_api.ravel(gt_name), xp_api.ones_like(xp_api.ravel(w_name)), xp=xp_api)
+        correlations["weighted"][name] = weighted_pearson_correlation(xp_api.ravel(r_name), xp_api.ravel(gt_name), xp_api.ravel(w_name), xp=xp_api)
 
     return EvaluationResult(
         results=results,

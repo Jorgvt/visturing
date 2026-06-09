@@ -13,7 +13,7 @@ from visturing.ranking import prepare_data, calculate_correlations_with_ground_t
 from visturing.properties.noise import generate_noise_iters, generate_plain
 from visturing.properties.formula import incremental_threshold_spatio_temp
 from visturing.properties.prob_weight import get_weights
-from visturing.properties.utils import EvaluationResult, run_batched, weighted_pearson_correlation
+from visturing.properties.utils import EvaluationResult, run_batched, weighted_pearson_correlation, ArrayApi
 from .config import default_prop3_4_config as default_config
 
 
@@ -155,7 +155,10 @@ def evaluate_gen(calculate_diffs,
                  batch_size: int | None = None,
                  verbose: bool = False,
                  weight_prob: bool = False,
+                 xp=np,
                  ):
+
+    xp_api = ArrayApi(xp)
 
     results = {}
     if return_stimuli:
@@ -180,7 +183,7 @@ def evaluate_gen(calculate_diffs,
         )
         diff = diffs_flat.reshape(n_iters_val, num_freqs)
 
-        diffs = diff.mean(axis=0)
+        diffs = xp_api.mean(diff, axis=0)
         results[name] = diffs
 
     gt = {}
@@ -197,16 +200,19 @@ def evaluate_gen(calculate_diffs,
 
     ## Correlations have to be calculated all together
     correlations = {"non-weighted": {}, "weighted": {}}
-    preds = np.stack([a for a in results.values()]).ravel()
-    gts = np.stack([a for a in gt.values()]).ravel()
-    weights_global = np.stack([a for a in weights.values()]).ravel()
+    preds = xp_api.ravel(xp_api.stack([results[k] for k in results.keys()]))
+    gts = xp_api.asarray(np.stack([gt[k] for k in results.keys()]).ravel())
+    weights_global = xp_api.asarray(np.stack([weights[k] for k in results.keys()]).ravel())
 
-    correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts, np.ones_like(weights_global))
-    correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts, weights_global)
+    correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts, xp_api.ones_like(weights_global), xp=xp_api)
+    correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts, weights_global, xp=xp_api)
 
     for name in results.keys():
-        correlations["non-weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gt[name].ravel(), np.ones_like(weights[name]).ravel())
-        correlations["weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gt[name].ravel(), weights[name].ravel())
+        r_name = results[name]
+        gt_name = xp_api.asarray(gt[name])
+        w_name = xp_api.asarray(weights[name])
+        correlations["non-weighted"][name] = weighted_pearson_correlation(xp_api.ravel(r_name), xp_api.ravel(gt_name), xp_api.ones_like(xp_api.ravel(w_name)), xp=xp_api)
+        correlations["weighted"][name] = weighted_pearson_correlation(xp_api.ravel(r_name), xp_api.ravel(gt_name), xp_api.ravel(w_name), xp=xp_api)
 
     return EvaluationResult(
         results=results,

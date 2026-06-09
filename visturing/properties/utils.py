@@ -19,7 +19,7 @@ class EvaluationResult:
 def run_batched(calculate_diffs, a, b, batch_size: Optional[int] = None, show_progress: bool = False, desc: str = "Evaluating batches"):
     """Slices the inputs into batches of `batch_size` and runs `calculate_diffs` on each batch.
     
-    Pure NumPy implementation.
+    Supports NumPy, JAX, and PyTorch outputs.
     """
     if batch_size is None or batch_size <= 0 or len(a) <= batch_size:
         if show_progress:
@@ -47,38 +47,76 @@ def run_batched(calculate_diffs, a, b, batch_size: Optional[int] = None, show_pr
     if pbar:
         pbar.close()
     
-    return np.concatenate([np.asarray(d) for d in diffs])
+    first_diff = diffs[0]
+    if hasattr(first_diff, "requires_grad") or (hasattr(first_diff, "__class__") and first_diff.__class__.__name__ == 'Tensor'):
+        import torch
+        # Ensure they are tensors and stack/concatenate
+        return torch.cat([torch.as_tensor(d) for d in diffs], dim=0)
+    elif hasattr(first_diff, "__class__") and 'jax' in first_diff.__class__.__module__:
+        import jax.numpy as jnp
+        return jnp.concatenate(diffs, axis=0)
+    else:
+        return np.concatenate([np.asarray(d) for d in diffs])
 
 
-def weighted_pearson_correlation(x, y, w):
+class ArrayApi:
+    def __init__(self, xp):
+        self.xp = xp
+        self.is_torch = (xp.__name__ == 'torch') if hasattr(xp, '__name__') else False
+        
+    def mean(self, x, axis=None):
+        return self.xp.mean(x, dim=axis) if self.is_torch else self.xp.mean(x, axis=axis)
+        
+    def sum(self, x, axis=None):
+        return self.xp.sum(x, dim=axis) if self.is_torch else self.xp.sum(x, axis=axis)
+        
+    def stack(self, arrays, axis=0):
+        return self.xp.stack(arrays, dim=axis) if self.is_torch else self.xp.stack(arrays, axis=axis)
+        
+    def repeat(self, x, repeats, axis=None):
+        return self.xp.repeat_interleave(x, repeats, dim=axis) if self.is_torch else self.xp.repeat(x, repeats, axis=axis)
+        
+    def transpose(self, x, axes=None):
+        if self.is_torch:
+            return x.permute(*axes) if axes is not None else x.t()
+        return x.transpose(axes) if axes is not None else x.T
+
+    def ravel(self, x):
+        return x.flatten() if self.is_torch else x.ravel()
+
+    def broadcast_to(self, x, shape):
+        return self.xp.broadcast_to(x, shape)
+
+    def ones_like(self, x):
+        return self.xp.ones_like(x)
+
+    def sqrt(self, x):
+        return self.xp.sqrt(x)
+
+    def concatenate(self, arrays, axis=0):
+        return self.xp.cat(arrays, dim=axis) if self.is_torch else self.xp.concatenate(arrays, axis=axis)
+
+    def asarray(self, x):
+        return self.xp.as_tensor(x) if self.is_torch else self.xp.asarray(x)
+
+
+def weighted_pearson_correlation(x, y, w, xp=np):
     """
     Calculate the weighted Pearson correlation coefficient.
-    
-    Parameters:
-    x (array-like): Data for the first variable.
-    y (array-like): Data for the second variable.
-    w (array-like): Weights for each data point.
-    
-    Returns:
-    float: The weighted Pearson correlation coefficient.
+    Supports NumPy, JAX, and PyTorch.
     """
-    x = np.asarray(x)
-    y = np.asarray(y)
-    w = np.asarray(w)
-    
-    # Calculate the weighted covariance matrix
-    # aweights specifies observation vector weights
-    cov_matrix = np.cov(x, y, aweights=w)
-    
-    # Extract covariance and variances from the matrix
-    cov_xy = cov_matrix[0, 1]
-    var_x = cov_matrix[0, 0]
-    var_y = cov_matrix[1, 1]
-    
-    # Calculate the weighted correlation coefficient
-    correlation = cov_xy / np.sqrt(var_x * var_y)
-    
-    return correlation
+    if not isinstance(xp, ArrayApi):
+        xp = ArrayApi(xp)
+        
+    w = w / xp.sum(w)
+    mean_x = xp.sum(w * x)
+    mean_y = xp.sum(w * y)
+    dev_x = x - mean_x
+    dev_y = y - mean_y
+    cov_xy = xp.sum(w * dev_x * dev_y)
+    var_x = xp.sum(w * dev_x ** 2)
+    var_y = xp.sum(w * dev_y ** 2)
+    return cov_xy / xp.sqrt(var_x * var_y)
 
 
 def download_ground_truth(data_path, # Path to download the data

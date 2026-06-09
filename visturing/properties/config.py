@@ -9,7 +9,8 @@ default_prop2_config = {
 
 default_prop3_4_config = {
     "img_size": (128, 128),
-    "freqs": np.arange(0, 16, step=1),
+    # Frequencies start from 1 to avoid log10(0) division by zero in prob_weight calculations
+    "freqs": np.arange(1, 17, step=1),
     "L": 40.0,
     "C": 0.01,
     "fs": 128,
