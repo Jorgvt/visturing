@@ -57,15 +57,17 @@ def main():
     opt_state = tx.init(params)
 
     # Define loss function
+    @jax.jit
+    def jit_calculate_diffs(params_val, a, b):
+        a_j = jnp.asarray(a)
+        b_j = jnp.asarray(b)
+        feat_a, _ = model.apply({"params": params_val, **state}, a_j, train=True, mutable=list(state.keys()))
+        feat_b, _ = model.apply({"params": params_val, **state}, b_j, train=True, mutable=list(state.keys()))
+        return jnp.sqrt(jnp.mean((feat_a - feat_b) ** 2, axis=(-3, -2, -1)) + 1e-8)
+
     def loss_fn(params_val):
         from visturing.properties.utils import run_batched
-        
-        def calculate_diffs(a, b):
-            a_j = jnp.asarray(a)
-            b_j = jnp.asarray(b)
-            feat_a, _ = model.apply({"params": params_val, **state}, a_j, train=True, mutable=list(state.keys()))
-            feat_b, _ = model.apply({"params": params_val, **state}, b_j, train=True, mutable=list(state.keys()))
-            return jnp.sqrt(jnp.mean((feat_a - feat_b) ** 2, axis=(-3, -2, -1)) + 1e-8)
+        calculate_diffs = lambda a, b: jit_calculate_diffs(params_val, a, b)
             
         ref_img_expanded = np.repeat(ref_img[None, ...], len(imgs), axis=0)
         diffs = run_batched(
