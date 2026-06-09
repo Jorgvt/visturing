@@ -11,8 +11,9 @@ from scipy.stats import pearsonr
 
 from visturing.ranking import prepare_data, calculate_spearman
 from perceptualtests.color_matrices import Mxyz2ng, gamma
-from .utils import EvaluationResult, run_batched
+from .utils import EvaluationResult, run_batched, weighted_pearson_correlation
 from .config import default_prop2_config as default_config
+from visturing.properties.prob_weight_chroma import get_weights
 
 
 def load_ground_truth(data_path: str = "ground_truth_decalogo", # Path to the root containing all the ground truth files
@@ -511,16 +512,28 @@ def evaluate_gen(calculate_diffs,
 
     ## Generate ground truth
     (achrom, bgs, lum, t0, t), (colors_t, colors_d, bg_t, bg_d, delta_t, delta_d, x) = get_ground_truth()
-    gt = {"achrom": achrom, "red-green": delta_t, "yellow-blue": delta_t}
+    gt = {"achrom": achrom, "red-green": delta_t, "yellow-blue": delta_d}
+
+    ## Obtain weights
+    YY = achrom.ravel()
+    TT = delta_t.ravel()
+    DD = delta_d.ravel()
+    bf, Nf, Nfc, Bfc = get_weights(YY, TT, DD, Bpp=3)
+    weights = {k:v.reshape(a.shape) for (k,v),a in zip(Nfc.items(), [achrom, delta_t, delta_d])}
+
 
     ## Correlations have to be calculated all together
-    correlations = {}
-    preds = np.concatenate([a.ravel() for a in results.values()])
-    gts = np.concatenate([a.ravel() for a in gt.values()])
-    correlations["pearson"] = pearsonr(preds, gts)[0]
-    correlations["global"] = pearsonr(preds, gts)
+    correlations = {"non-weighted": {}, "weighted": {}}
+    preds = np.concatenate([results[k].ravel() for k in results.keys()])
+    gts_flat = np.concatenate([gt[k].ravel() for k in results.keys()])
+    weights_global = np.concatenate([weights[k].ravel() for k in results.keys()])
+
+    correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, np.ones_like(weights_global))
+    correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, weights_global)
+
     for name in results.keys():
-        correlations[name] = pearsonr(results[name].ravel(), gt[name].ravel())
+        correlations["non-weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gt[name].ravel(), np.ones_like(weights[name]).ravel())
+        correlations["weighted"][name] = weighted_pearson_correlation(results[name].ravel(), gt[name].ravel(), weights[name].ravel())
 
     return EvaluationResult(
         results=results,
