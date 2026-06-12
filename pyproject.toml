@@ -6,6 +6,9 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["visturing*"]
 
+[tool.setuptools.package-data]
+"visturing.properties" = ["*.mat"]
+
 [tool.uv.sources]
 paramperceptnet = { git = "https://github.com/Jorgvt/paramperceptnet.git" }
 
@@ -55,6 +58,7 @@ dev = [
     "datasets>=4.8.5",
     "huggingface-hub>=1.17.0",
     "ipykernel>=6.29.5",
+    "nbformat>=5.10.4",
     "paramperceptnet",
     "plotly>=6.7.0",
     "pytest>=8.3.5",
