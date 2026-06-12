@@ -38,9 +38,43 @@ The primary results and figures from the paper are generated using Jupyter Noteb
 
 To evaluate some models check the folder *use_examples*
 
-Repository Structure
+### Custom Evaluation Configurations (e.g., Custom Image Sizes)
 
-use_examples/: Examples to evaluate classical models using the library. It aomatically downloads the data in /Data if necessary.
+You can customize the parameters used during generative evaluation (such as changing the evaluation image size from `(128, 128)` to `(256, 256)`) by passing a configuration override dictionary to the `configs` argument of `evaluate_all_gen`:
+
+```python
+from visturing.properties.utils import evaluate_all_gen, build_evaluation_table_gen
+
+# Define custom configuration overrides for generative properties
+# (Note: prop1 loads static dataset files from disk, so it cannot be resized dynamically)
+custom_configs = {
+    "prop2": {
+        "img_size": (256, 256),
+        "square_size": (128, 128)  # Scaled center patch scale proportionally
+    },
+    "prop3_4": {"img_size": (256, 256)},
+    "prop5":   {"img_size": (256, 256)},
+    "prop6_7": {"img_size": (256, 256)},
+    "prop8":   {"img_size": (256, 256)},
+    "prop9":   {"img_size": (256, 256)},
+    "prop10":  {"img_size": (256, 256)},
+}
+
+# Run the evaluation
+results = evaluate_all_gen(
+    calculate_diffs=calculate_diffs,
+    configs=custom_configs,
+    batch_size=16,
+    verbose=True
+)
+
+# Print the formatted markdown evaluation table
+print(build_evaluation_table_gen(results))
+```
+
+## Repository Structure
+
+use_examples/: Examples to evaluate classical models using the library. It automatically downloads the data in /Data if necessary.
 
 visturing/: Scripts implementing the 10 psychophysical/physiological tests.
 
