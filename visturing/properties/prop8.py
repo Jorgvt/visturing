@@ -247,8 +247,7 @@ def evaluate_gen(calculate_diffs,
         diffs = xp_api.mean(diff, axis=0)
         results[name] = diffs
 
-    for name, r in results.items():
-        print(f"{name}: {r.shape}")
+
 
     ## Get ground truth to calculate correlation
     gts = {}
@@ -277,8 +276,8 @@ def evaluate_gen(calculate_diffs,
     ## Correlations have to be calculated all together
     correlations = {"non-weighted": {}, "weighted": {}}
     preds = xp_api.ravel(xp_api.stack([results[k] for k in results.keys()]))
-    gts_flat = xp_api.asarray(np.stack([gts[k] for k in results.keys()]).ravel())
-    weights_global = xp_api.asarray(np.stack([weights_tiled[k] for k in results.keys()]).ravel())
+    gts_flat = xp_api.ravel(xp_api.stack([gts[k] for k in results.keys()]))
+    weights_global = xp_api.ravel(xp_api.stack([weights_tiled[k] for k in results.keys()]))
 
     correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, xp_api.ones_like(weights_global), xp=xp_api)
     correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, weights_global, xp=xp_api)
@@ -332,7 +331,7 @@ def get_ground_truth(
             # sups.append(S_malo)
             sups[ii,jj] = S_malo
 
-    print(f"Sups: {sups.shape}")
+
     ## Include 0s and cumsum to obtain response curves
     Zs = np.empty(shape=(len(fs_mask), len(cs_mask), len(fs_test), len(cs_test)+1))
     for i, f_mask in enumerate(freqs_mask):

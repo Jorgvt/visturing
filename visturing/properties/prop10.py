@@ -202,8 +202,6 @@ def evaluate_gen(calculate_diffs,
                         thetas_mask=thetas_mask,
                         delta_theta=delta_theta,
                         )
-        print(f"Stimuli_: {stimuli_.shape}")
-
         if return_stimuli:
             stimuli[name] = stimuli_
 
@@ -257,8 +255,8 @@ def evaluate_gen(calculate_diffs,
     ## Correlations have to be calculated all together
     correlations = {"non-weighted": {}, "weighted": {}}
     preds = xp_api.ravel(xp_api.stack([results[k] for k in results.keys()]))
-    gts_flat = xp_api.asarray(np.stack([gts[k] for k in results.keys()]).ravel())
-    weights_global = xp_api.asarray(np.stack([weights_tiled[k] for k in results.keys()]).ravel())
+    gts_flat = xp_api.ravel(xp_api.stack([gts[k] for k in results.keys()]))
+    weights_global = xp_api.ravel(xp_api.stack([weights_tiled[k] for k in results.keys()]))
 
     correlations["non-weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, xp_api.ones_like(weights_global), xp=xp_api)
     correlations["weighted"]["global"] = weighted_pearson_correlation(preds, gts_flat, weights_global, xp=xp_api)
