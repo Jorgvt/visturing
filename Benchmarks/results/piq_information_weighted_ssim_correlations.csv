@@ -1,0 +1,10 @@
+Property,RMSE fit (ρ_p),Curve Order (ρ_k)
+Prop. 1,0.89,-
+Prop. 2 achrom.,0.70,0.54
+Prop. 2 chrom.,0.80,RG: 0.74 | YB: 0.65
+Prop. 3 & 4,0.68,0.91
+Prop. 5,-,0.26
+Prop. 6 & 7,0.76,A: 0.57 | RG: 0.70 | YB: 0.90
+Prop. 8,0.99,Low f: 0.95 | High f: 0.31
+Prop. 9,0.99,Low f: 0.43 | High f: 0.24
+Prop. 10,0.99,Low f: -0.17 | High f: -0.05
